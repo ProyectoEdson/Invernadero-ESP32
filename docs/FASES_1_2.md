@@ -98,7 +98,23 @@ Se compiló con el perfil `esp32s3` y se cargó mediante Arduino CLI. El cargado
 | Bloqueo Peltier | Informado como activo |
 | DHT11 | 11 `read_error`; temperatura y humedad `null`; ninguna lectura válida |
 
-**Fase 2 no aceptada todavía.** Se recibió una foto del montaje en protoboard. El conector de señal tapa la zona IO15/IO16 y las etiquetas de pines del módulo no son legibles; se solicitó una vista lateral del conector y del pinout del sensor, sin alimentación. No se cambia el firmware a GPIO4 para ocultar o eludir el fallo.
+La primera prueba no fue aceptada por los errores DHT11. Se recibió una foto del montaje en protoboard, con el conector tapando IO15/IO16 y etiquetas del sensor no legibles; se solicitó revisar ambos extremos sin alimentación. No se cambió el firmware a otro GPIO.
+
+### Comprobación después de revisar el cableado
+
+El responsable confirmó DATA/S en GPIO15, VCC en 3,3 V y GND común, con solo USB conectado, y autorizó repetir la lectura. Se observó el mismo firmware sin recompilar ni cambiar el pin.
+
+| Comprobación | Resultado observado |
+| --- | --- |
+| Muestras consecutivas | 6, secuencias 1 a 6 |
+| Estado del sensor | `ok` en las seis muestras |
+| Temperatura | 27,1 °C en las seis muestras |
+| Humedad ambiental | Entre 31 y 33 % |
+| Wi-Fi y memoria | `wifi_connected: true` y `memory_config_ok: true` en las seis muestras |
+| GPIO4/5/7 | LOW y `outputs_safe: true` en las seis muestras |
+| Peltier | Bloqueo activo; ninguna carga energizada para esta prueba |
+
+**Firmware base de Fase 2 validado por USB.** Las lecturas son evidencia de comunicación con el sensor, no una calibración contra un instrumento patrón. No se afirma cuál era el defecto físico original del cableado: solo que la prueba posterior a la revisión ya entregó lecturas válidas.
 
 No se comprobaron todavía recuperación tras pérdida de Wi-Fi, funcionamiento con batería, transitorios de arranque ni actuación física. La prueba sí observó la representación explícita de fallo de sensor, sin datos ficticios. Las credenciales y los binarios compilados se mantienen locales.
 

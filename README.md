@@ -4,7 +4,7 @@ Invernadero automatizado para lechuga, con un ESP32-S3 conectado por Wi-Fi a una
 
 ## Estado actual
 
-**Firmware base de fase 2 implementado, compilado y cargado por USB.** Se observó conexión Wi-Fi y salidas en LOW, pero el DHT11 no respondió: la fase 2 no está aceptada todavía. No hay aplicación web, despliegue cloud ni pruebas de actuadores.
+**Firmware base de fase 2 implementado, compilado, cargado y validado por USB.** Tras revisar el cableado, se observaron seis lecturas válidas del DHT11, Wi-Fi conectado, memoria esperada y salidas LOW. La fase 1 sigue pendiente de mediciones físicas. No hay aplicación web, despliegue cloud ni pruebas de actuadores.
 
 Se ha revisado el esquemático compartido y se han identificado las señales previstas. La PCB física, las protecciones y la capacidad eléctrica del montaje siguen pendientes de validación.
 
@@ -48,7 +48,7 @@ Los umbrales ambientales no son los límites de protección térmica del disipad
 Estado real por fase:
 
 1. Verificación eléctrica: revisión documental realizada; mediciones físicas pendientes.
-2. Firmware base: compilado/cargado, Wi-Fi y niveles LOW observados; lectura DHT11 pendiente.
+2. Firmware base: validado por USB con DHT11, Wi-Fi, memoria esperada y salidas LOW; recuperación de red y pruebas de potencia no realizadas.
 3. Conectar nube y dashboard público con telemetría real.
 4. Incorporar administrador, modos y órdenes confirmadas.
 5. Calibrar riego e implementar automatización local.

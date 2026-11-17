@@ -145,7 +145,7 @@ Las bombas de este proyecto son de riego. No se supondrá refrigeración por agu
 
 Se detectó el chip por USB y se compiló un sketch temporal: 309.962 bytes con la partición utilizada en esa prueba. Eso no verifica ejecución ni capacidad térmica. No se cargó ese sketch y ya se eliminó. No reutilizar su asignación antigua de GPIO4 para DHT11 con esta PCB.
 
-El firmware del repositorio ya se compiló y cargó con el perfil de 16 MB y PSRAM OPI. En ejecución, las 11 muestras observadas informaron `memory_config_ok: true`, comparando 16 MB de flash y 8 MB de PSRAM. Wi-Fi conectado y pads de salida LOW; DHT11 con fallo de lectura. Esto no valida potencia ni completa la fase 2. Instrucciones y evidencia en [Fases 1 y 2](FASES_1_2.md). Las herramientas de una estación no configuran automáticamente las de otro colaborador.
+El firmware del repositorio ya se compiló y cargó con el perfil de 16 MB y PSRAM OPI. La primera prueba mostró fallo DHT11; tras revisar el cableado, seis muestras consecutivas fueron válidas, con 27,1 °C y 31–33 % de humedad. En esas muestras, `memory_config_ok: true` confirmó la comparación con flash 16 MB y PSRAM 8 MB; Wi-Fi conectado y pads de salida LOW. Esto valida el firmware base por USB, no la etapa de potencia. Instrucciones y evidencia en [Fases 1 y 2](FASES_1_2.md). Las herramientas de una estación no configuran automáticamente las de otro colaborador.
 
 ## 10. Referencia del MOSFET
 
