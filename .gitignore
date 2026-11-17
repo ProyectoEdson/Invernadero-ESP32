@@ -1,0 +1,8 @@
+# Credenciales Wi-Fi locales: nunca versionar.
+/firmware/invernadero/wifi.local.h
+
+# Los binarios contienen las credenciales compiladas.
+/firmware/invernadero/build/
+*.bin
+*.elf
+*.map

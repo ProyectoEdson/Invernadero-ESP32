@@ -1,0 +1,13 @@
+default_fqbn: esp32:esp32:esp32s3:FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,PSRAM=opi,CDCOnBoot=default,EraseFlash=none
+profiles:
+  esp32s3:
+    notes: ESP32-S3, flash 16 MB, PSRAM OPI 8 MB, consola por puente UART USB.
+    fqbn: esp32:esp32:esp32s3:FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,PSRAM=opi,CDCOnBoot=default,EraseFlash=none
+    platforms:
+      - platform: esp32:esp32 (3.3.13)
+        platform_index_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+    libraries:
+      - DHT sensor library (1.4.7)
+      - dependency: Adafruit Unified Sensor (1.1.15)
+default_port_config:
+  baudrate: 115200

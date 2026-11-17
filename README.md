@@ -4,7 +4,7 @@ Invernadero automatizado para lechuga, con un ESP32-S3 conectado por Wi-Fi a una
 
 ## Estado actual
 
-**Repositorio en fase de documentación y planificación.** Todavía no contiene una aplicación web, firmware, despliegue ni pruebas de funcionamiento de actuadores.
+**Firmware base de fase 2 implementado, compilado y cargado por USB.** Se observó conexión Wi-Fi y salidas en LOW, pero el DHT11 no respondió: la fase 2 no está aceptada todavía. No hay aplicación web, despliegue cloud ni pruebas de actuadores.
 
 Se ha revisado el esquemático compartido y se han identificado las señales previstas. La PCB física, las protecciones y la capacidad eléctrica del montaje siguen pendientes de validación.
 
@@ -17,6 +17,7 @@ Se ha revisado el esquemático compartido y se han identificado las señales pre
 | [Plan de desarrollo](docs/PLAN.md) | Arquitectura, seguridad, modos, fases detalladas, entregables, pruebas y decisiones pendientes |
 | [Hardware y seguridad](docs/HARDWARE.md) | GPIO, bomba, alimentación con batería, MOSFETs, calibración y protección térmica |
 | [Diseño de interfaz](docs/DISENO_UI.md) | Dirección botánica premium, dashboard, administración, móvil, accesibilidad y estados reales |
+| [Registro de fases 1 y 2](docs/FASES_1_2.md) | Mediciones pendientes, configuración privada, compilación, carga y evidencia real |
 
 ## Sistema previsto
 
@@ -44,10 +45,10 @@ Los umbrales ambientales no son los límites de protección térmica del disipad
 
 ## Hoja de ruta
 
-Todas las fases siguientes están pendientes; la documentación no equivale a implementación.
+Estado real por fase:
 
-1. Verificar PCB, alimentación, señales y etapa de potencia.
-2. Desarrollar y comprobar firmware básico de sensores.
+1. Verificación eléctrica: revisión documental realizada; mediciones físicas pendientes.
+2. Firmware base: compilado/cargado, Wi-Fi y niveles LOW observados; lectura DHT11 pendiente.
 3. Conectar nube y dashboard público con telemetría real.
 4. Incorporar administrador, modos y órdenes confirmadas.
 5. Calibrar riego e implementar automatización local.
@@ -63,4 +64,4 @@ La nube y el frontend pueden desarrollarse sin alimentar las cargas. Las pruebas
 - Definir macetas/sustrato, medir caudal y aprobar la programación de riego.
 - Disponer de proyectos Vercel/Supabase y cuenta administradora, sin compartir secretos en el repositorio.
 
-El repositorio no instala dependencias ni incluye todavía comandos de compilación, carga o despliegue. Se añadirán junto con cada implementación comprobada.
+El firmware está en [`firmware/invernadero/`](firmware/invernadero/). Las instrucciones de configuración, compilación reproducible y carga están en el [registro de fases 1 y 2](docs/FASES_1_2.md). Las credenciales Wi-Fi locales y los binarios no se versionan.

@@ -8,7 +8,7 @@ Construir un invernadero para lechuga con un ESP32-S3 que mida temperatura y hum
 
 La laptop sirve para desarrollar y abrir el dashboard, no para alojar un servicio obligatorio. Durante la evaluación, el ESP32 tendrá alimentación independiente y acceso Wi-Fi a Internet. El celular podrá usar otra red.
 
-Este repositorio comienza con documentación. Las funciones descritas abajo son requisitos y trabajo pendiente, no prestaciones ya implementadas.
+El repositorio contiene documentación y firmware base de fase 2. Se compiló y cargó en el ESP32: Wi-Fi y salidas LOW observados, pero sin lectura válida del DHT11. La fase 1 requiere mediciones físicas y la fase 2 aún no está aceptada. El resto son requisitos pendientes, no prestaciones implementadas. Véase el [registro de ejecución](FASES_1_2.md).
 
 ### Decisiones acordadas
 
@@ -151,6 +151,8 @@ Cada fase tiene una condición de salida. La documentación y el desarrollo de l
 
 ### Fase 1 — Verificación eléctrica y mapa físico
 
+**Estado:** revisión documental realizada; continuidad, tensiones y capacidad de potencia pendientes de mediciones físicas. La prueba por USB no completa esta fase.
+
 **Trabajo**
 
 - Contrastar esquema, PCB fabricada, orientación del módulo y pinout real.
@@ -164,6 +166,8 @@ Cada fase tiene una condición de salida. La documentación y el desarrollo de l
 **Aceptación:** no hay conexiones ambiguas; tensiones verificadas; montaje apto para comenzar pruebas de baja potencia. Si falla, no conectar cargas aunque el software avance.
 
 ### Fase 2 — Firmware base y sensores
+
+**Estado:** firmware implementado, compilado y cargado. Conexión Wi-Fi y salidas LOW observadas; DHT11 con errores de lectura. No aceptada hasta comprobar una lectura real válida. Evidencia y comandos en [Fases 1 y 2](FASES_1_2.md).
 
 **Trabajo**
 
