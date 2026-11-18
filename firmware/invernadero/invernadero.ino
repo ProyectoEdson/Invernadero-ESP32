@@ -1,10 +1,17 @@
 #include <Arduino.h>
 #include <DHT.h>
 #include <WiFi.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <driver/gpio.h>
 #include <esp_random.h>
 #include <esp_timer.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/queue.h>
+#include <freertos/task.h>
 #include <math.h>
+#include <string.h>
+#include <time.h>
 
 #if !defined(CONFIG_IDF_TARGET_ESP32S3)
 #error "Este firmware requiere un ESP32-S3."
@@ -16,8 +23,17 @@
 #error "Copia wifi.example.h como wifi.local.h y configura tu red de 2,4 GHz."
 #endif
 
+#if __has_include("cloud.local.h")
+#include "cloud.local.h"
+#else
+#error "Copia cloud.example.h como cloud.local.h y configura URL, token y CA."
+#endif
+
 static_assert(sizeof(WIFI_SSID) > 1, "Configura WIFI_SSID en wifi.local.h.");
 static_assert(sizeof(WIFI_SSID) <= 33, "El SSID admite como máximo 32 bytes.");
+static_assert(sizeof(CLOUD_API_URL) > 9, "Configura CLOUD_API_URL en cloud.local.h.");
+static_assert(sizeof(CLOUD_DEVICE_TOKEN) > 1, "Configura CLOUD_DEVICE_TOKEN en cloud.local.h.");
+static_assert(sizeof(CLOUD_ROOT_CA) > 1, "Configura CLOUD_ROOT_CA en cloud.local.h.");
 
 constexpr uint8_t DHT_PIN = 15;
 constexpr gpio_num_t PELTIER_PIN = GPIO_NUM_4;
@@ -30,6 +46,48 @@ constexpr uint32_t INITIAL_RETRY_MS = 15000;
 constexpr uint32_t MAX_RETRY_MS = 60000;
 constexpr uint32_t EXPECTED_FLASH_BYTES = 16U * 1024U * 1024U;
 constexpr uint32_t EXPECTED_PSRAM_BYTES = 8U * 1024U * 1024U;
+constexpr uint32_t MAX_SAMPLE_AGE_MS = 15000;
+constexpr uint32_t HTTP_CONNECT_TIMEOUT_MS = 5000;
+constexpr uint16_t HTTP_IO_TIMEOUT_MS = 5000;
+constexpr uint32_t TLS_HANDSHAKE_TIMEOUT_SECONDS = 5;
+constexpr time_t MIN_VALID_UNIX_TIME = 1735689600;  // 2025-01-01 UTC.
+constexpr size_t SAMPLE_JSON_CAPACITY = 640;
+
+struct TelemetrySample {
+  uint64_t uptimeMs;
+  uint32_t sequence;
+  float temperature;
+  float humidity;
+  const char *sensorStatus;
+  int peltierLevel;
+  int pumpLevel;
+  int fansLevel;
+  bool valid;
+  bool wifiConnected;
+  bool outputsSafe;
+};
+
+struct CloudReport {
+  const char *status;
+  int httpStatus;
+  int transportCode;
+  int accepted;  // -1: no confirmado; 0/1 solo tras respuesta válida.
+};
+
+// Declaraciones explícitas para el preprocesador de sketches de Arduino:
+// los prototipos con estos tipos deben ir después de definir los structs.
+class CloudResponseBuffer;
+static size_t formatSample(char *buffer, size_t capacity,
+                           const TelemetrySample &sample, bool sending,
+                           uint64_t sentUptimeMs = 0);
+static bool parseCloudResponse(const CloudResponseBuffer &response,
+                               bool &accepted);
+static bool sendCloudSample(const TelemetrySample &sample);
+static void publishCloudReport(const char *status, int httpStatus = 0,
+                               int transportCode = 0, int accepted = -1);
+
+QueueHandle_t cloudSamples = nullptr;
+QueueHandle_t cloudReports = nullptr;
 
 DHT dht(DHT_PIN, DHT11);
 char deviceId[17];
@@ -67,7 +125,7 @@ static void reportBoot() {
   memoryConfigurationOk = flashBytes == EXPECTED_FLASH_BYTES &&
                           psramBytes == EXPECTED_PSRAM_BYTES;
   Serial.printf(
-      "{\"type\":\"boot\",\"firmware\":\"phase2\",\"device_id\":\"%s\","
+      "{\"type\":\"boot\",\"firmware\":\"phase3\",\"device_id\":\"%s\","
       "\"boot_id\":\"%s\",\"flash_bytes\":%lu,\"psram_bytes\":%lu,"
       "\"memory_config_ok\":%s,\"dht_gpio\":15,\"peltier_locked\":true}\n",
       deviceId, bootId, (unsigned long)flashBytes, (unsigned long)psramBytes,
@@ -103,37 +161,303 @@ static void serviceNetwork(uint32_t now) {
   }
 }
 
-static void readAndReport() {
-  // La biblioteca reutiliza la misma adquisición para ambas magnitudes.
-  const float humidity = dht.readHumidity();
-  const float temperature = dht.readTemperature();
-  const bool readOk = isfinite(temperature) && isfinite(humidity);
-  const bool valid = readOk && temperature >= 0.0f && temperature <= 50.0f &&
-                     humidity >= 0.0f && humidity <= 100.0f;
-  const char *sensorStatus = !readOk ? "read_error" : valid ? "ok" : "out_of_range";
+static size_t formatSample(char *buffer, size_t capacity,
+                           const TelemetrySample &sample, bool sending,
+                           uint64_t sentUptimeMs) {
   char temperatureText[16] = "null";
   char humidityText[16] = "null";
-  if (valid) {
-    snprintf(temperatureText, sizeof(temperatureText), "%.1f", temperature);
-    snprintf(humidityText, sizeof(humidityText), "%.1f", humidity);
+  if (sample.valid) {
+    snprintf(temperatureText, sizeof(temperatureText), "%.1f", sample.temperature);
+    snprintf(humidityText, sizeof(humidityText), "%.1f", sample.humidity);
   }
-  const int peltierLevel = gpio_get_level(PELTIER_PIN);
-  const int pumpLevel = gpio_get_level(PUMP_PIN);
-  const int fansLevel = gpio_get_level(FANS_PIN);
-  const bool outputsSafe = peltierLevel == 0 && pumpLevel == 0 && fansLevel == 0;
-  ++sequence;
-  Serial.printf(
+  const int length = snprintf(
+      buffer, capacity,
       "{\"type\":\"sample\",\"device_id\":\"%s\",\"boot_id\":\"%s\","
       "\"sequence\":%lu,\"uptime_ms\":%llu,\"sensor_status\":\"%s\","
       "\"temperature_c\":%s,\"humidity_pct\":%s,\"wifi_connected\":%s,"
       "\"memory_config_ok\":%s,\"peltier_locked\":true,"
       "\"gpio_levels\":{\"peltier\":%d,\"pump\":%d,\"fans\":%d},"
-      "\"outputs_safe\":%s}\n",
-      deviceId, bootId, (unsigned long)sequence,
-      (unsigned long long)(esp_timer_get_time() / 1000), sensorStatus,
-      temperatureText, humidityText, wasConnected ? "true" : "false",
-      memoryConfigurationOk ? "true" : "false", peltierLevel, pumpLevel,
-      fansLevel, outputsSafe ? "true" : "false");
+      "\"outputs_safe\":%s",
+      deviceId, bootId, (unsigned long)sample.sequence,
+      (unsigned long long)sample.uptimeMs, sample.sensorStatus,
+      temperatureText, humidityText, sample.wifiConnected ? "true" : "false",
+      memoryConfigurationOk ? "true" : "false", sample.peltierLevel,
+      sample.pumpLevel, sample.fansLevel, sample.outputsSafe ? "true" : "false");
+  if (length < 0 || size_t(length) >= capacity) {
+    return 0;
+  }
+  const int tailLength = sending
+      ? snprintf(buffer + length, capacity - length,
+                 ",\"sent_uptime_ms\":%llu}", (unsigned long long)sentUptimeMs)
+      : snprintf(buffer + length, capacity - length, "}");
+  if (tailLength < 0 || size_t(tailLength) >= capacity - length) {
+    return 0;
+  }
+  return size_t(length + tailLength);
+}
+
+static void publishCloudReport(const char *status, int httpStatus,
+                               int transportCode, int accepted) {
+  const CloudReport report = {status, httpStatus, transportCode, accepted};
+  xQueueSend(cloudReports, &report, portMAX_DELAY);
+}
+
+static void reportCloud() {
+  CloudReport report;
+  if (cloudReports == nullptr ||
+      xQueueReceive(cloudReports, &report, 0) != pdTRUE) {
+    return;
+  }
+  char httpStatus[16] = "null";
+  char transportCode[16] = "null";
+  if (report.httpStatus > 0) {
+    snprintf(httpStatus, sizeof(httpStatus), "%d", report.httpStatus);
+  }
+  if (report.transportCode < 0) {
+    snprintf(transportCode, sizeof(transportCode), "%d", report.transportCode);
+  }
+  // Solo loop escribe en Serial: ningún worker puede partir una línea JSON.
+  Serial.printf(
+      "{\"type\":\"cloud\",\"status\":\"%s\",\"http_status\":%s,"
+      "\"transport_code\":%s,\"accepted\":%s}\n",
+      report.status, httpStatus, transportCode,
+      report.accepted < 0 ? "null" : report.accepted ? "true" : "false");
+}
+
+class CloudResponseBuffer : public Stream {
+ public:
+  char data[128] = {};
+  size_t length = 0;
+  uint32_t startedAt = millis();
+
+  int available() override { return 0; }
+  int read() override { return -1; }
+  int peek() override { return -1; }
+  void flush() override {}
+  size_t write(uint8_t value) override { return write(&value, 1); }
+  size_t write(const uint8_t *buffer, size_t size) override {
+    if (uint32_t(millis() - startedAt) >= HTTP_IO_TIMEOUT_MS ||
+        size > sizeof(data) - 1 - length) {
+      return 0;
+    }
+    memcpy(data + length, buffer, size);
+    length += size;
+    data[length] = '\0';
+    return size;
+  }
+};
+
+static void skipJsonSpace(const char *&cursor) {
+  while (*cursor == ' ' || *cursor == '\t' ||
+         *cursor == '\r' || *cursor == '\n') {
+    ++cursor;
+  }
+}
+
+static bool consumeJson(const char *&cursor, const char *literal) {
+  skipJsonSpace(cursor);
+  const size_t length = strlen(literal);
+  if (strncmp(cursor, literal, length) != 0) {
+    return false;
+  }
+  cursor += length;
+  return true;
+}
+
+static bool parseCloudResponse(const CloudResponseBuffer &response,
+                               bool &accepted) {
+  // Contrato cerrado: dos booleanos, sin duplicados ni campos desconocidos.
+  if (memchr(response.data, '\0', response.length) != nullptr) {
+    return false;
+  }
+  const char *cursor = response.data;
+  unsigned int seen = 0;
+  bool ok = false;
+  if (!consumeJson(cursor, "{")) {
+    return false;
+  }
+  for (unsigned int field = 0; field < 2; ++field) {
+    unsigned int bit;
+    if (consumeJson(cursor, "\"ok\"")) {
+      bit = 1;
+    } else if (consumeJson(cursor, "\"accepted\"")) {
+      bit = 2;
+    } else {
+      return false;
+    }
+    if ((seen & bit) != 0 || !consumeJson(cursor, ":")) {
+      return false;
+    }
+    bool value;
+    if (consumeJson(cursor, "true")) {
+      value = true;
+    } else if (consumeJson(cursor, "false")) {
+      value = false;
+    } else {
+      return false;
+    }
+    seen |= bit;
+    if (bit == 1) {
+      ok = value;
+    } else {
+      accepted = value;
+    }
+    if (field == 0 && !consumeJson(cursor, ",")) {
+      return false;
+    }
+  }
+  if (!consumeJson(cursor, "}")) {
+    return false;
+  }
+  skipJsonSpace(cursor);
+  return *cursor == '\0' && seen == 3 && ok;
+}
+
+static bool sendCloudSample(const TelemetrySample &sample) {
+  WiFiClientSecure client;
+  client.setCACert(CLOUD_ROOT_CA);
+  client.setHandshakeTimeout(TLS_HANDSHAKE_TIMEOUT_SECONDS);
+  HTTPClient http;
+  http.setConnectTimeout(HTTP_CONNECT_TIMEOUT_MS);
+  http.setTimeout(HTTP_IO_TIMEOUT_MS);
+  http.setReuse(false);
+  // Nunca reenviar el Bearer a otro destino mediante una redirección.
+  http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
+  if (!http.begin(client, CLOUD_API_URL)) {
+    publishCloudReport("begin_failed");
+    return false;
+  }
+  char authorization[sizeof(CLOUD_DEVICE_TOKEN) + 7];
+  snprintf(authorization, sizeof(authorization), "Bearer %s", CLOUD_DEVICE_TOKEN);
+  http.addHeader("Authorization", authorization);
+  http.addHeader("Content-Type", "application/json");
+  char body[SAMPLE_JSON_CAPACITY];
+  const uint64_t sentUptimeMs = uint64_t(esp_timer_get_time() / 1000);
+  if (sentUptimeMs < sample.uptimeMs ||
+      sentUptimeMs - sample.uptimeMs >= MAX_SAMPLE_AGE_MS) {
+    http.end();
+    publishCloudReport("sample_expired");
+    return false;
+  }
+  const size_t length = formatSample(body, sizeof(body), sample, true, sentUptimeMs);
+  if (length == 0) {
+    http.end();
+    publishCloudReport("payload_overflow");
+    return false;
+  }
+  // begin(client, URL) conecta por hostname; la CA y mbedTLS validan su identidad.
+  const int status = http.POST(reinterpret_cast<uint8_t *>(body), length);
+  bool successful = false;
+  if (status <= 0) {
+    publishCloudReport("transport_error", 0, status);
+  } else if (status != HTTP_CODE_OK) {
+    publishCloudReport("http_error", status);
+  } else {
+    CloudResponseBuffer response;
+    bool accepted = false;
+    const int declaredLength = http.getSize();
+    const int received = declaredLength >= int(sizeof(response.data))
+        ? 0 : http.writeToStream(&response);
+    if (received < 0 || size_t(received) != response.length ||
+        !parseCloudResponse(response, accepted)) {
+      publishCloudReport("invalid_response", status, received < 0 ? received : 0);
+    } else {
+      successful = true;
+      publishCloudReport(accepted ? "accepted" : "not_accepted",
+                         status, 0, accepted ? 1 : 0);
+    }
+  }
+  http.end();
+  return successful;
+}
+
+static void cloudWorker(void *) {
+  // SNTP trabaja de forma asíncrona; jamás esperar la hora en setup/loop.
+  configTime(0, 0, "pool.ntp.org", "time.cloudflare.com");
+  uint32_t retryMs = INITIAL_RETRY_MS;
+  uint64_t nextAttemptAt = 0;
+  const char *waitingStatus = nullptr;
+  for (;;) {
+    const char *blocked = WiFi.status() != WL_CONNECTED ? "waiting_wifi"
+        : time(nullptr) < MIN_VALID_UNIX_TIME ? "waiting_time" : nullptr;
+    if (blocked != nullptr) {
+      if (blocked != waitingStatus) {
+        publishCloudReport(blocked);
+        waitingStatus = blocked;
+      }
+      vTaskDelay(pdMS_TO_TICKS(NETWORK_CHECK_INTERVAL_MS));
+      continue;
+    }
+    waitingStatus = nullptr;
+    if (uint64_t(esp_timer_get_time() / 1000) < nextAttemptAt) {
+      vTaskDelay(pdMS_TO_TICKS(NETWORK_CHECK_INTERVAL_MS));
+      continue;
+    }
+    TelemetrySample sample;
+    if (xQueueReceive(cloudSamples, &sample,
+                      pdMS_TO_TICKS(NETWORK_CHECK_INTERVAL_MS)) != pdTRUE) {
+      continue;
+    }
+    if (sendCloudSample(sample)) {
+      retryMs = INITIAL_RETRY_MS;
+      nextAttemptAt = 0;
+    } else {
+      nextAttemptAt = uint64_t(esp_timer_get_time() / 1000) + retryMs;
+      retryMs = retryMs < MAX_RETRY_MS / 2 ? retryMs * 2 : MAX_RETRY_MS;
+    }
+  }
+}
+
+static void initializeCloud() {
+  if (strncmp(CLOUD_API_URL, "https://", 8) != 0) {
+    Serial.println("{\"type\":\"cloud\",\"status\":\"https_required\"}");
+    return;
+  }
+  cloudSamples = xQueueCreate(1, sizeof(TelemetrySample));
+  cloudReports = xQueueCreate(4, sizeof(CloudReport));
+  if (cloudSamples == nullptr || cloudReports == nullptr ||
+      xTaskCreate(cloudWorker, "cloud_https", 12288, nullptr, 1, nullptr) != pdPASS) {
+    if (cloudSamples != nullptr) {
+      vQueueDelete(cloudSamples);
+      cloudSamples = nullptr;
+    }
+    if (cloudReports != nullptr) {
+      vQueueDelete(cloudReports);
+      cloudReports = nullptr;
+    }
+    Serial.println("{\"type\":\"cloud\",\"status\":\"worker_start_failed\"}");
+  }
+}
+
+static void readAndReport() {
+  // La biblioteca reutiliza la misma adquisición para ambas magnitudes.
+  TelemetrySample sample = {};
+  sample.humidity = dht.readHumidity();
+  sample.temperature = dht.readTemperature();
+  const bool readOk = isfinite(sample.temperature) && isfinite(sample.humidity);
+  sample.valid = readOk && sample.temperature >= 0.0f &&
+                 sample.temperature <= 50.0f && sample.humidity >= 0.0f &&
+                 sample.humidity <= 100.0f;
+  sample.sensorStatus = !readOk ? "read_error"
+      : sample.valid ? "ok" : "out_of_range";
+  sample.peltierLevel = gpio_get_level(PELTIER_PIN);
+  sample.pumpLevel = gpio_get_level(PUMP_PIN);
+  sample.fansLevel = gpio_get_level(FANS_PIN);
+  sample.outputsSafe = sample.peltierLevel == 0 &&
+                       sample.pumpLevel == 0 && sample.fansLevel == 0;
+  sample.sequence = ++sequence;
+  sample.uptimeMs = uint64_t(esp_timer_get_time() / 1000);
+  sample.wifiConnected = wasConnected;
+  char body[SAMPLE_JSON_CAPACITY];
+  if (formatSample(body, sizeof(body), sample, false) != 0) {
+    Serial.println(body);
+  } else {
+    Serial.println("{\"type\":\"cloud\",\"status\":\"payload_overflow\"}");
+  }
+  if (cloudSamples != nullptr) {
+    // Una única ranura: reemplazar la pendiente, nunca acumular historia.
+    xQueueOverwrite(cloudSamples, &sample);
+  }
 }
 
 void setup() {
@@ -149,11 +473,13 @@ void setup() {
   lastWifiAttemptAt = millis();
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   lastSampleAt = millis();
+  initializeCloud();
 }
 
 void loop() {
   const uint32_t now = millis();
   serviceNetwork(now);
+  reportCloud();
   if (uint32_t(now - lastSampleAt) >= SAMPLE_INTERVAL_MS) {
     lastSampleAt = now;
     readAndReport();

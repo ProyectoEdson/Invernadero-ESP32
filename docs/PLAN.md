@@ -8,7 +8,7 @@ Construir un invernadero para lechuga con un ESP32-S3 que mida temperatura y hum
 
 La laptop sirve para desarrollar y abrir el dashboard, no para alojar un servicio obligatorio. Durante la evaluación, el ESP32 tendrá alimentación independiente y acceso Wi-Fi a Internet. El celular podrá usar otra red.
 
-El repositorio contiene documentación y firmware base de fase 2, compilado, cargado y validado por USB. Tras revisar el cableado se observaron seis muestras válidas del DHT11, Wi-Fi conectado, memoria esperada y salidas LOW. La fase 1 requiere mediciones físicas. El resto son requisitos pendientes, no prestaciones implementadas. Véase el [registro de ejecución](FASES_1_2.md).
+La fase 3 ya está desplegada: ESP32 → HTTPS → Supabase → dashboard público con datos reales. Se verificaron permisos, deduplicación, actualización Realtime, escritorio/móvil y recuperación después de detener el ESP32. La fase 1 sigue pendiente de mediciones eléctricas; administración y actuación permanecen sin implementar. Véanse la [evidencia histórica de fases 1 y 2](FASES_1_2.md) y la [operación actual de fase 3](FASE_3.md).
 
 ### Decisiones acordadas
 
@@ -73,16 +73,17 @@ La cadencia es un objetivo de operación, no una garantía de latencia. La web n
 
 ### Modelo de datos inicial
 
-Los nombres siguientes son una propuesta técnica de implementación, no tablas ya creadas.
+`device_state` y los cursores privados de ingreso ya existen en fase 3. Las tablas de órdenes/configuración y la cuenta administradora siguen siendo propuestas de fases posteriores.
 
 | Entidad | Información | Acceso |
 | --- | --- | --- |
-| `device_state` | Última lectura válida, recepción del servidor, calidad, modo aplicado, salidas reportadas y bloqueos públicos | Lectura pública limitada; escritura del backend validado |
-| `device_commands` | ID, dispositivo/arranque destino, solicitante, operación, parámetros, emisión, caducidad y resultado | Privado; administrador y backend según permisos |
-| `device_config` | Umbrales, programación calibrada, límites y versión de configuración | Privado; cambios autorizados y aplicación confirmada |
-| Credenciales y autorización | Identidad administradora y credencial de dispositivo protegida | Nunca accesibles desde lectura pública |
+| `device_state` | Última muestra válida o inválida, recepción, edad, calidad, modo Monitorización y niveles reportados; sin identidad privada del dispositivo | SELECT público; escritura mediante backend validado |
+| `private.ingest_cursor` y `private.known_boots` | Secuencia y arranques ya vistos; evitan duplicados y regresiones | Exclusivamente función privilegiada |
+| `device_commands` (pendiente) | ID, dispositivo/arranque destino, solicitante, operación, parámetros, emisión, caducidad y resultado | Privado; administrador y backend según permisos |
+| `device_config` (pendiente) | Umbrales, programación calibrada, límites y versión de configuración | Privado; cambios autorizados y aplicación confirmada |
+| Credenciales y autorización | Token de dispositivo configurado; cuenta administradora pendiente | Nunca accesibles desde lectura pública |
 
-Se distinguirán recepción en servidor y momento de medición. Una retransmisión no debe convertir una lectura vieja en una lectura actual. Se usarán secuencias e identidad de arranque para deduplicar envíos.
+La recepción del servidor y la edad de cola de la muestra se registran por separado. Una retransmisión no refresca datos viejos. El ingreso usa secuencia e identidad de arranque privadas para deduplicar; la hora mostrada es una estimación, no una medición exacta de latencia.
 
 La primera gráfica representará una ventana acotada de lecturas realmente recibidas durante la sesión. El almacenamiento y consulta de histórico entre sesiones requiere definir retención y consumo antes de incorporarlo. No se generarán datos de relleno.
 
@@ -184,6 +185,8 @@ Cada fase tiene una condición de salida. La documentación y el desarrollo de l
 
 ### Fase 3 — Nube y dashboard público
 
+**Estado:** implementada y desplegada. Dashboard público con telemetría real, permisos y deduplicación verificados, diseño revisado a 1440/360 px y recuperación tras detener el ESP32. Alimentación independiente y prueba física desde celular en otra red permanecen en el ensayo de campo. Véase [Fase 3](FASE_3.md).
+
 **Trabajo**
 
 - Crear proyecto Next.js/TypeScript y configurar Supabase y Vercel.
@@ -284,7 +287,7 @@ Cada evidencia registrará fecha, versión de firmware/web, montaje utilizado, a
 | Caudal real, macetas, sustrato y drenaje | Aprobar riego automático |
 | Ventiladores y disipador | Refrigeración física |
 | Sensor y corte térmico independiente | Habilitar Peltier |
-| Cuenta administradora y proyectos cloud | Despliegue operativo y control privado |
+| Cuenta administradora | Control privado de fase 4; proyectos cloud ya operativos |
 | Red de evaluación y credenciales Wi-Fi | Prueba final sin laptop |
 | Retención de datos y límites del servicio | Histórico persistente y uso prolongado |
 

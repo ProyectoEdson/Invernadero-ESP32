@@ -6,7 +6,7 @@
 
 Crear una experiencia visual cuidada para un invernadero real, no una página de números ni un panel genérico con botones. La interfaz debe transmitir calma, claridad y precisión, y seguir siendo útil cuando el dispositivo falla o no hay lecturas.
 
-Este documento es una especificación, no una interfaz implementada ni una captura de un producto existente.
+La superficie pública ya está implementada y desplegada en fase 3. Este documento conserva su especificación y la de administración, todavía pendiente de fase 4. La evidencia visual y funcional está en [Fase 3](FASE_3.md).
 
 ### Dirección aprobada
 
@@ -22,9 +22,9 @@ La identidad inicial será Invernadero ESP32. Fotografías, logotipo, nombre com
 
 Next.js/React permite componentes complejos, layouts responsive, animaciones y gráficas interactivas. Vercel aloja la aplicación; Supabase proporciona datos y acceso, sin imponer su aspecto.
 
-Base prevista: TypeScript y Tailwind CSS, con componentes accesibles y una librería de gráficas elegida durante implementación. Recharts es una candidata, no una dependencia ya aprobada/instalada. No se instala una librería de animación por defecto si CSS basta.
+Base implementada: TypeScript, Tailwind CSS, componentes propios accesibles y Recharts. Manrope variable se autoaloja desde su paquete npm. Las versiones están fijadas en `web/package.json` y su lockfile. No se añadió una librería de animación.
 
-Las fuentes deberán cargarse de forma que no dependan de peticiones externas continuas al visitar la web. La biblioteca UI y las fuentes concretas se cerrarán antes de su incorporación. No sacrificar accesibilidad por personalización visual.
+La fuente no requiere peticiones a Google Fonts durante la visita. La validación en navegador incluyó escritorio, móvil de 360 px, ayuda con foco/Escape y áreas táctiles de 44 × 44 px; no se presume que un build sustituya la revisión visual.
 
 ## 3. Superficie pública
 
@@ -115,7 +115,7 @@ La interfaz se considerará terminada cuando:
 
 ## 8. Orden de diseño e implementación
 
-1. Aprobar composición del dashboard y administración mediante una propuesta visual antes de implementar el frontend completo.
+1. Composición pública aprobada e implementada; la superficie administradora requiere revisión antes de construir fase 4.
 2. Definir tokens compartidos de color, tipografía, espaciado, estados y foco.
 3. Construir componentes base y layout responsive con estados vacíos honestos.
 4. Conectar telemetría real y gráfica reciente.

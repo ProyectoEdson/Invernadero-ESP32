@@ -4,7 +4,9 @@ Invernadero automatizado para lechuga, con un ESP32-S3 conectado por Wi-Fi a una
 
 ## Estado actual
 
-**Firmware base de fase 2 implementado, compilado, cargado y validado por USB.** Tras revisar el cableado, se observaron seis lecturas válidas del DHT11, Wi-Fi conectado, memoria esperada y salidas LOW. La fase 1 sigue pendiente de mediciones físicas. No hay aplicación web, despliegue cloud ni pruebas de actuadores.
+**Fase 3 implementada y desplegada:** ESP32 → HTTPS → Supabase → dashboard público, con mediciones reales y actualización sin recargar. Se verificaron lectura pública, rechazo de escritura, deduplicación, escritorio/móvil y recuperación tras detener el ESP32. La fase 1 sigue pendiente de mediciones físicas; no hay controles de actuadores.
+
+**Web pública:** <https://invernadero-esp32-delta.vercel.app>
 
 Se ha revisado el esquemático compartido y se han identificado las señales previstas. La PCB física, las protecciones y la capacidad eléctrica del montaje siguen pendientes de validación.
 
@@ -18,6 +20,7 @@ Se ha revisado el esquemático compartido y se han identificado las señales pre
 | [Hardware y seguridad](docs/HARDWARE.md) | GPIO, bomba, alimentación con batería, MOSFETs, calibración y protección térmica |
 | [Diseño de interfaz](docs/DISENO_UI.md) | Dirección botánica premium, dashboard, administración, móvil, accesibilidad y estados reales |
 | [Registro de fases 1 y 2](docs/FASES_1_2.md) | Mediciones pendientes, configuración privada, compilación, carga y evidencia real |
+| [Fase 3 operativa](docs/FASE_3.md) | Enlace público, configuración, despliegue, protocolo, permisos, pruebas y límites |
 
 ## Sistema previsto
 
@@ -25,7 +28,7 @@ Se ha revisado el esquemático compartido y se han identificado las señales pre
 - **DHT11:** temperatura y humedad del aire; no mide humedad del suelo.
 - **Next.js en Vercel:** dashboard público y API HTTPS.
 - **Supabase:** datos, actualizaciones en tiempo real y autenticación.
-- **Administración:** solo la cuenta autorizada puede solicitar cambios de modo y actuaciones.
+- **Administración:** pendiente de fase 4; todavía no hay inicio de sesión ni mandos.
 - **Diseño:** interfaz botánica premium, responsive, con gráficas de datos auténticos y estados claros.
 
 El ESP32 inicia conexiones salientes a Internet. Laptop y celular abren la web desde cualquier red; no se abrirán puertos del router ni se usará la laptop como puente obligatorio.
@@ -49,7 +52,7 @@ Estado real por fase:
 
 1. Verificación eléctrica: revisión documental realizada; mediciones físicas pendientes.
 2. Firmware base: validado por USB con DHT11, Wi-Fi, memoria esperada y salidas LOW; recuperación de red y pruebas de potencia no realizadas.
-3. Conectar nube y dashboard público con telemetría real.
+3. Nube y dashboard: desplegados y verificados con datos reales del ESP32; detalle en [Fase 3](docs/FASE_3.md).
 4. Incorporar administrador, modos y órdenes confirmadas.
 5. Calibrar riego e implementar automatización local.
 6. Incorporar protección térmica y habilitar Peltier; fase pospuesta.
@@ -62,6 +65,6 @@ La nube y el frontend pueden desarrollarse sin alimentar las cargas. Las pruebas
 - Contrastar el mapa de GPIO y orientación con la PCB ensamblada.
 - Revisar excitación de los IRLZ44N a 3,3 V, alimentación, fusibles y cableado.
 - Definir macetas/sustrato, medir caudal y aprobar la programación de riego.
-- Disponer de proyectos Vercel/Supabase y cuenta administradora, sin compartir secretos en el repositorio.
+- Configurar la cuenta administradora en fase 4; los proyectos Vercel/Supabase ya existen y sus secretos no se versionan.
 
-El firmware está en [`firmware/invernadero/`](firmware/invernadero/). Las instrucciones de configuración, compilación reproducible y carga están en el [registro de fases 1 y 2](docs/FASES_1_2.md). Las credenciales Wi-Fi locales y los binarios no se versionan.
+La web está en [`web/`](web/) y el firmware en [`firmware/invernadero/`](firmware/invernadero/). La configuración, compilación, carga y despliegue actuales están en [Fase 3](docs/FASE_3.md). El registro de fases 1 y 2 conserva su evidencia histórica. Las credenciales locales y los binarios no se versionan.

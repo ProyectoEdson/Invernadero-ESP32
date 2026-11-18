@@ -6,6 +6,8 @@
 
 La revisión del esquema y la preparación del firmware pueden hacerse desde la estación. La revisión eléctrica de la PCB no puede certificarse por software.
 
+Este documento conserva las pruebas históricas de fase 2. El firmware actual ya incorpora HTTPS de fase 3 y también requiere `cloud.local.h`; para configurar, compilar y desplegar la versión actual, seguir [Fase 3](FASE_3.md).
+
 El responsable confirmó para la prueba: alimentación solo por USB, batería/alimentación externa y cargas desconectadas, DHT11 conectado a 3,3 V, GND y GPIO15. También autorizó sobrescribir el firmware actual. Esta confirmación no sustituye mediciones físicas.
 
 ## Fase 1: registro de revisión
