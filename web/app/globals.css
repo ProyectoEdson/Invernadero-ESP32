@@ -334,3 +334,7 @@ th, td { padding: 8px; border-bottom: 1px solid var(--border); white-space: nowr
   .admin-pulse > div { grid-template-columns: minmax(70px, 1fr) auto; }
   .admin-pulse .admin-button { padding-inline: 13px; }
 }
+
+.log-note { color: var(--muted); font-size: 11px; }
+.log-actions { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
+.system-section .table-scroll { margin-top: 14px; }

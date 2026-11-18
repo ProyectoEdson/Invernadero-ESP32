@@ -80,6 +80,7 @@ La cadencia es un objetivo de operación, no una garantía de latencia. La web n
 | `device_state` | Última muestra válida o inválida, recepción, edad, calidad, modo Monitorización y niveles reportados; sin identidad privada del dispositivo | SELECT público; escritura mediante backend validado |
 | `private.ingest_cursor` y `private.known_boots` | Secuencia y arranques ya vistos; evitan duplicados y regresiones | Exclusivamente función privilegiada |
 | `device_commands` | Secuencia, arranque destino, operación, parámetros, emisión, caducidad y resultado | Solo backend; ninguna escritura pública |
+| `readings` | Historial visible: una fila cada 10 s, 30 días de retención, con hora de medición, valores, estado y modo | SELECT público; escribe un trigger privilegiado |
 | `device_config` (pendiente) | Umbrales, programación calibrada, límites y versión de configuración | Privado; cambios autorizados y aplicación confirmada |
 | Credenciales y autorización | Token de dispositivo y cuenta administradora configurados | Nunca accesibles desde lectura pública |
 

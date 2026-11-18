@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { COOLING_OFF_C, COOLING_ON_C, STALE_AFTER_MS, sampleAgeMs } from "../lib/types";
 import { ClimateChart } from "./climate-chart";
+import { ReadingsLog } from "./readings-log";
 import { useTelemetry } from "./use-telemetry";
 
 function Info({ children, label }: { children: React.ReactNode; label: string }) {
@@ -96,13 +97,15 @@ export function Dashboard() {
             </div>
           </section>
 
+          <ReadingsLog />
+
           <aside className="context-section" aria-label="Alcance de la monitorización">
             <div className="context-leaf" aria-hidden="true"><svg viewBox="0 0 52 64"><path d="M11 56C15 37 31 24 43 8C50 40 33 52 16 49M13 52L28 37M26 39V26" /></svg></div>
             <div><h2>Observar primero. Cuidar con criterio.</h2><p>Los {COOLING_ON_C} °C de encendido y {COOLING_OFF_C} °C de apagado son umbrales previstos para un futuro automático, no un objetivo activo ni una recomendación agronómica. Automático no riega en fase 4; la calibración y el riego quedan para fase 5.</p></div>
             <p className="future-note">El acceso privado permite solicitar órdenes con confirmación del ESP32. Montaje de prueba sin cargas: un nivel GPIO no confirma actuación física.</p>
           </aside>
         </main>
-        <footer className="site-footer"><span>Invernadero ESP32</span><span>Datos reales. Sin histórico entre visitas.</span></footer>
+        <footer className="site-footer"><span>Invernadero ESP32</span><span>Datos reales. Registro guardado cada 10 s.</span></footer>
       </div>
     </>
   );
