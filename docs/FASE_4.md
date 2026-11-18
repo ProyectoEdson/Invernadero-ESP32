@@ -107,14 +107,6 @@ La primera transmisión posterior a la migración mostró `invalid_response` con
 
 ## 7. Operación
 
-### Registro histórico visible
-
-`public.device_state` sigue guardando solo la última muestra, pero un trigger copia a `public.readings` una fila cada 10 segundos como máximo (30 días de retención, poda perezosa). El dashboard muestra esa tabla paginada en «Registro guardado»; el público solo puede leerla.
-
-- Se almacena la hora de medición corregida por la edad de cola, no la de recepción.
-- Los fallos de sensor se guardan con valores nulos y estado `read_error`.
-- Verificado: la tabla renderiza filas reales de la base y la página mantiene estados vacío y de error. La inserción desde telemetría real queda pendiente de encender el equipo.
-
 ### Varias redes Wi-Fi
 
 `wifi.local.h` admite una lista; el firmware las prueba en orden hasta que una responde:
