@@ -6,7 +6,7 @@
 
 Crear una experiencia visual cuidada para un invernadero real, no una página de números ni un panel genérico con botones. La interfaz debe transmitir calma, claridad y precisión, y seguir siendo útil cuando el dispositivo falla o no hay lecturas.
 
-La superficie pública ya está implementada y desplegada en fase 3. Este documento conserva su especificación y la de administración, todavía pendiente de fase 4. La evidencia visual y funcional está en [Fase 3](FASE_3.md).
+Las superficies pública y administradora están implementadas en fases 3 y 4. Este documento conserva su especificación; la evidencia visual y funcional está en [Fase 3](FASE_3.md) y [Fase 4](FASE_4.md).
 
 ### Dirección aprobada
 

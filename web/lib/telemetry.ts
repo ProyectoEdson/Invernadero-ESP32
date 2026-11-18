@@ -1,4 +1,21 @@
-import type { GpioLevels, SensorStatus } from "./types";
+import type { CommandKind, GpioLevels, SensorStatus } from "./types";
+
+export type CommandAck = {
+  id: string;
+  status: "applied" | "rejected";
+  reason: string | null;
+};
+
+/** Solo viaja al dispositivo autenticado, nunca al estado público/administrativo. */
+export type DeviceCommand = {
+  id: string;
+  sequence: number;
+  kind: CommandKind;
+  value: string | boolean | null;
+  duration_ms: number | null;
+  expires_in_ms: number;
+  target_boot_id: string;
+};
 
 export type Telemetry = {
   type: "sample";
@@ -15,6 +32,9 @@ export type Telemetry = {
   peltier_locked: true;
   gpio_levels: GpioLevels;
   outputs_safe: true;
+  operating_mode: "manual" | "automatic";
+  phase4_control_ready: true;
+  ack: CommandAck | null;
 };
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -29,7 +49,7 @@ function finiteIn(value: unknown, minimum: number, maximum: number): value is nu
   return typeof value === "number" && Number.isFinite(value) && value >= minimum && value <= maximum;
 }
 
-/** Fase 3 es solo supervisión; ninguna muestra puede declarar una salida activa. */
+/** Fase 4 permite bomba/ventiladores, pero nunca GPIO4/Peltier. */
 export function validateTelemetry(value: unknown, expectedDevice: string): Telemetry | null {
   if (!record(value) || value.type !== "sample" || value.device_id !== expectedDevice ||
       typeof value.device_id !== "string" || !/^inv-[0-9a-f]{12}$/.test(value.device_id) ||
@@ -39,8 +59,22 @@ export function validateTelemetry(value: unknown, expectedDevice: string): Telem
       value.sent_uptime_ms - value.uptime_ms > 15_000 ||
       typeof value.wifi_connected !== "boolean" || typeof value.memory_config_ok !== "boolean" ||
       value.peltier_locked !== true || value.outputs_safe !== true || !record(value.gpio_levels) ||
-      value.gpio_levels.peltier !== 0 || value.gpio_levels.pump !== 0 || value.gpio_levels.fans !== 0) {
+      value.gpio_levels.peltier !== 0 ||
+      (value.gpio_levels.pump !== 0 && value.gpio_levels.pump !== 1) ||
+      (value.gpio_levels.fans !== 0 && value.gpio_levels.fans !== 1) ||
+      (value.operating_mode !== "manual" && value.operating_mode !== "automatic") ||
+      value.phase4_control_ready !== true) {
     return null;
+  }
+  let ack: CommandAck | null = null;
+  if (value.ack !== null) {
+    if (!record(value.ack) || typeof value.ack.id !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.ack.id) ||
+        (value.ack.status !== "applied" && value.ack.status !== "rejected") ||
+        (value.ack.reason !== null && (typeof value.ack.reason !== "string" || value.ack.reason.length > 160))) {
+      return null;
+    }
+    ack = { id: value.ack.id, status: value.ack.status, reason: value.ack.reason };
   }
   if (value.sensor_status === "ok") {
     if (!finiteIn(value.temperature_c, 0, 50) || !finiteIn(value.humidity_pct, 0, 100)) return null;
@@ -63,7 +97,10 @@ export function validateTelemetry(value: unknown, expectedDevice: string): Telem
     wifi_connected: value.wifi_connected,
     memory_config_ok: value.memory_config_ok,
     peltier_locked: true,
-    gpio_levels: { peltier: 0, pump: 0, fans: 0 },
+    gpio_levels: { peltier: 0, pump: value.gpio_levels.pump, fans: value.gpio_levels.fans },
     outputs_safe: true,
+    operating_mode: value.operating_mode,
+    phase4_control_ready: true,
+    ack,
   };
 }

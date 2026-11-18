@@ -28,6 +28,7 @@ export function Dashboard() {
   const measuredAt = state ? new Date(Date.parse(state.received_at) - state.sample_age_ms) : null;
   const dateText = measuredAt && now !== null ? new Intl.DateTimeFormat("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZoneName: "short" }).format(measuredAt) : null;
   const ageText = age === null ? null : age < 1_000 ? "hace menos de un segundo" : age < 60_000 ? `hace ${Math.floor(age / 1_000)} s` : age < 3_600_000 ? `hace ${Math.floor(age / 60_000)} min` : `hace ${Math.floor(age / 3_600_000)} h`;
+  const modeLabel = state?.operating_mode === "manual" ? "Manual" : state?.operating_mode === "automatic" ? "Automático" : state?.operating_mode === "monitoring" ? "Monitorización" : "Sin reporte";
 
   return (
     <>
@@ -38,13 +39,13 @@ export function Dashboard() {
             <svg className="brand-mark" viewBox="0 0 40 44" aria-hidden="true"><path d="M5 38V17L20 5L35 17V38H5ZM20 5V38M5 17H35M20 30C11 30 10 24 10 24C17 23 20 27 20 30ZM20 25C20 20 25 18 29 19C29 24 25 27 20 27" /></svg>
             <span>Invernadero <span className="identity-model">ESP32</span></span>
           </a>
-          <div className="header-status"><span className={`status-dot ${recent ? "is-live" : ""}`} aria-hidden="true" /><span>{headlineStatus}</span></div>
+          <div className="public-header-actions"><div className="header-status"><span className={`status-dot ${recent ? "is-live" : ""}`} aria-hidden="true" /><span>{headlineStatus}</span></div><a className="admin-access" href="/admin">Administrar</a></div>
         </header>
 
         <main id="clima">
           <div className="intro">
             <div><p className="intro-kicker">Una ventana al cultivo</p><h1>Lo que se respira<br />dentro del invernadero.</h1></div>
-            <p className="intro-note">Temperatura y humedad ambiental,<br className="desktop-break" /> medidas por un DHT11.<br /><span>Solo observar. Sin actuar sobre las cargas.</span></p>
+            <p className="intro-note">Temperatura y humedad ambiental,<br className="desktop-break" /> medidas por un DHT11.<br /><span>Vista pública de solo lectura. Control en el acceso privado.</span></p>
           </div>
 
           <div className="notices" aria-live="polite" aria-atomic="true">
@@ -53,7 +54,7 @@ export function Dashboard() {
             {!configError && realtime === "interrupted" && <div className="notice"><strong>La conexión en directo del navegador se ha interrumpido.</strong><p>Realtime intentará reconectar y consultará el estado al recuperarse. Esto no confirma una desconexión del ESP32.</p></div>}
             {stale && <div className="notice"><strong>El dispositivo no ha enviado una lectura reciente.</strong><p>Última muestra {ageText}. Puede haber una interrupción de Wi-Fi, Internet o del propio ESP32. Los valores que ves son antiguos.</p></div>}
             {state && !sensorOk && <div className="notice"><strong>{sensorLabel}.</strong><p>{state.sensor_status === "out_of_range" ? "La muestra está fuera del rango admitido. No se presenta como una medición válida." : "El DHT11 no produjo una lectura válida. Temperatura y humedad se muestran sin valor."}</p></div>}
-            {state && (!state.outputs_safe || Object.values(state.gpio_levels).some((value) => value !== 0)) && <div className="notice"><strong>Salidas reportadas fuera del estado seguro esperado.</strong><p>Esta fase requiere todas las salidas LOW. La web no puede apagar ni verificar físicamente las cargas.</p></div>}
+            {state && (!state.outputs_safe || !state.peltier_locked || state.gpio_levels.peltier !== 0) && <div className="notice"><strong>El bloqueo seguro de la Peltier no está confirmado.</strong><p>GPIO4 debe permanecer LOW. Esta vista pública no puede apagar ni verificar físicamente las cargas.</p></div>}
           </div>
 
           <div className="climate-layout">
@@ -65,7 +66,7 @@ export function Dashboard() {
                   <path className="greenhouse-base" d="M20 390H600M94 405H526" />
                   <path className="plant-lines" d="M151 388V347M151 367C126 368 120 354 119 345C136 344 150 351 151 367ZM152 358C155 341 165 335 182 336C180 349 170 359 152 358ZM459 388V330M459 355C439 354 430 344 429 333C445 332 457 340 459 355ZM459 344C460 324 471 316 488 317C488 333 477 344 459 344" />
                 </svg>
-                <div className="roof-label">Monitorización</div>
+                <div className="roof-label">{modeLabel}</div>
                 <div className="climate-readings">
                   <div className="temperature-reading"><span className="metric-name">Temperatura</span><p className={`metric-value ${loading ? "is-loading" : ""}`}>{hasValue ? state.temperature_c!.toLocaleString("es", { maximumFractionDigits: 1, minimumFractionDigits: 1 }) : "—"}<span>°C</span></p></div>
                   <div className="humidity-reading"><span className="metric-name">Humedad relativa</span><p className={`metric-value ${loading ? "is-loading" : ""}`}>{hasValue ? state.humidity_pct!.toLocaleString("es", { maximumFractionDigits: 1, minimumFractionDigits: 1 }) : "—"}<span>%</span></p></div>
@@ -82,10 +83,10 @@ export function Dashboard() {
           <section className="system-section" aria-labelledby="system-title">
             <div className="system-heading"><h2 id="system-title">Lo que reporta el sistema</h2><p>Información del ESP32, no confirmación física de las cargas. {stale && <strong>Reporte desactualizado.</strong>}</p></div>
             <dl className="system-strip">
-              <div><dt>Modo actual</dt><dd>Monitorización</dd><p>No se envían órdenes</p></div>
-              <div><dt>Peltier <Info label="Por qué la Peltier está bloqueada">Protección térmica pendiente. Este canal no debe activarse en esta fase.</Info></dt><dd className="warning-text">Bloqueada</dd><p>{state && !state.peltier_locked ? "Alerta: bloqueo no confirmado" : "Protección térmica pendiente"}</p></div>
-              <div><dt>Bomba · Q2</dt><dd>{state ? state.gpio_levels.pump === 0 ? "GPIO LOW" : "GPIO HIGH · revisar" : "Sin reporte"}</dd><p>El GPIO no confirma caudal</p></div>
-              <div><dt>Ventiladores · Q3</dt><dd>No instalados</dd><p>{state ? `GPIO reportado: ${state.gpio_levels.fans === 0 ? "LOW" : "HIGH · revisar"}` : "Sin reporte del GPIO"}</p></div>
+              <div><dt>Modo reportado</dt><dd>{modeLabel}</dd><p>{state?.operating_mode === "automatic" ? "Sin riego automático en fase 4" : "Vista pública de solo lectura"}</p></div>
+              <div><dt>Peltier <Info label="Por qué la Peltier está bloqueada">Protección térmica pendiente. Este canal no debe activarse en esta fase.</Info></dt><dd className="warning-text">{!state ? "Sin reporte" : state.peltier_locked && state.gpio_levels.peltier === 0 ? "Bloqueada" : "Bloqueo no confirmado"}</dd><p>Protección térmica pendiente</p></div>
+              <div><dt>Bomba · Q2</dt><dd>{state ? state.gpio_levels.pump === 0 ? "GPIO LOW" : "GPIO HIGH" : "Sin reporte"}</dd><p>El GPIO no confirma caudal</p></div>
+              <div><dt>Ventiladores · Q3</dt><dd>{state ? state.gpio_levels.fans === 0 ? "GPIO LOW" : "GPIO HIGH" : "Sin reporte"}</dd><p>El GPIO no confirma ventilación</p></div>
             </dl>
             <div className="diagnostics">
               <span>Wi-Fi del ESP32: <strong>{!state ? "sin reporte" : stale ? "sin confirmación reciente" : state.wifi_connected ? "conectado al muestrear" : "desconectado al muestrear"}</strong></span>
@@ -97,8 +98,8 @@ export function Dashboard() {
 
           <aside className="context-section" aria-label="Alcance de la monitorización">
             <div className="context-leaf" aria-hidden="true"><svg viewBox="0 0 52 64"><path d="M11 56C15 37 31 24 43 8C50 40 33 52 16 49M13 52L28 37M26 39V26" /></svg></div>
-            <div><h2>Observar primero. Cuidar con criterio.</h2><p>Los {COOLING_ON_C} °C de encendido y {COOLING_OFF_C} °C de apagado son umbrales previstos para un futuro automático, no un objetivo activo ni una recomendación agronómica. La fase actual solo mide.</p></div>
-            <p className="future-note">El acceso administrador y los controles pertenecen a una fase futura. No hay actuación remota habilitada.</p>
+            <div><h2>Observar primero. Cuidar con criterio.</h2><p>Los {COOLING_ON_C} °C de encendido y {COOLING_OFF_C} °C de apagado son umbrales previstos para un futuro automático, no un objetivo activo ni una recomendación agronómica. Automático no riega en fase 4; la calibración y el riego quedan para fase 5.</p></div>
+            <p className="future-note">El acceso privado permite solicitar órdenes con confirmación del ESP32. Montaje de prueba sin cargas: un nivel GPIO no confirma actuación física.</p>
           </aside>
         </main>
         <footer className="site-footer"><span>Invernadero ESP32</span><span>Datos reales. Sin histórico entre visitas.</span></footer>

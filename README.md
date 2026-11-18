@@ -4,9 +4,9 @@ Invernadero automatizado para lechuga, con un ESP32-S3 conectado por Wi-Fi a una
 
 ## Estado actual
 
-**Fase 3 implementada y desplegada:** ESP32 → HTTPS → Supabase → dashboard público, con mediciones reales y actualización sin recargar. Se verificaron lectura pública, rechazo de escritura, deduplicación, escritorio/móvil y recuperación tras detener el ESP32. La fase 1 sigue pendiente de mediciones físicas; no hay controles de actuadores.
+**Fase 4 implementada y desplegada:** panel privado con Supabase Auth, modos Manual/Automático y órdenes confirmadas por el ESP32. Se probaron pulsos de 1,5 y 3 s (3.000.017 µs medidos), ventiladores, rechazos por permisos, origen y estado, y rechazo tras reinicio, todo **sin cargas conectadas**. La Peltier sigue bloqueada y Automático no riega.
 
-**Web pública:** <https://invernadero-esp32-delta.vercel.app>
+**Web pública:** <https://invernadero-esp32-delta.vercel.app> · **Panel privado:** <https://invernadero-esp32-delta.vercel.app/admin>
 
 Se ha revisado el esquemático compartido y se han identificado las señales previstas. La PCB física, las protecciones y la capacidad eléctrica del montaje siguen pendientes de validación.
 
@@ -21,6 +21,7 @@ Se ha revisado el esquemático compartido y se han identificado las señales pre
 | [Diseño de interfaz](docs/DISENO_UI.md) | Dirección botánica premium, dashboard, administración, móvil, accesibilidad y estados reales |
 | [Registro de fases 1 y 2](docs/FASES_1_2.md) | Mediciones pendientes, configuración privada, compilación, carga y evidencia real |
 | [Fase 3 operativa](docs/FASE_3.md) | Enlace público, configuración, despliegue, protocolo, permisos, pruebas y límites |
+| [Fase 4 operativa](docs/FASE_4.md) | Autenticación, órdenes confirmadas, firmware, evidencia y límites |
 
 ## Sistema previsto
 
@@ -28,7 +29,7 @@ Se ha revisado el esquemático compartido y se han identificado las señales pre
 - **DHT11:** temperatura y humedad del aire; no mide humedad del suelo.
 - **Next.js en Vercel:** dashboard público y API HTTPS.
 - **Supabase:** datos, actualizaciones en tiempo real y autenticación.
-- **Administración:** pendiente de fase 4; todavía no hay inicio de sesión ni mandos.
+- **Administración:** panel privado con cuenta autorizada; la Peltier no tiene control.
 - **Diseño:** interfaz botánica premium, responsive, con gráficas de datos auténticos y estados claros.
 
 El ESP32 inicia conexiones salientes a Internet. Laptop y celular abren la web desde cualquier red; no se abrirán puertos del router ni se usará la laptop como puente obligatorio.
@@ -53,7 +54,7 @@ Estado real por fase:
 1. Verificación eléctrica: revisión documental realizada; mediciones físicas pendientes.
 2. Firmware base: validado por USB con DHT11, Wi-Fi, memoria esperada y salidas LOW; recuperación de red y pruebas de potencia no realizadas.
 3. Nube y dashboard: desplegados y verificados con datos reales del ESP32; detalle en [Fase 3](docs/FASE_3.md).
-4. Incorporar administrador, modos y órdenes confirmadas.
+4. Administrador y órdenes: desplegados y verificados sin cargas; detalle en [Fase 4](docs/FASE_4.md).
 5. Calibrar riego e implementar automatización local.
 6. Incorporar protección térmica y habilitar Peltier; fase pospuesta.
 7. Ensayar evaluación sin laptop, incluidos reinicios y desconexiones.

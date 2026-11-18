@@ -8,7 +8,7 @@ Construir un invernadero para lechuga con un ESP32-S3 que mida temperatura y hum
 
 La laptop sirve para desarrollar y abrir el dashboard, no para alojar un servicio obligatorio. Durante la evaluación, el ESP32 tendrá alimentación independiente y acceso Wi-Fi a Internet. El celular podrá usar otra red.
 
-La fase 3 ya está desplegada: ESP32 → HTTPS → Supabase → dashboard público con datos reales. Se verificaron permisos, deduplicación, actualización Realtime, escritorio/móvil y recuperación después de detener el ESP32. La fase 1 sigue pendiente de mediciones eléctricas; administración y actuación permanecen sin implementar. Véanse la [evidencia histórica de fases 1 y 2](FASES_1_2.md) y la [operación actual de fase 3](FASE_3.md).
+Las fases 3 y 4 están desplegadas: dashboard público con telemetría real y panel privado con órdenes confirmadas, verificados sin cargas conectadas. La fase 1 sigue pendiente de mediciones eléctricas; el riego automático y la protección térmica aún no existen. Véanse [Fase 3](FASE_3.md), [Fase 4](FASE_4.md) y la [evidencia histórica de fases 1 y 2](FASES_1_2.md).
 
 ### Decisiones acordadas
 
@@ -79,9 +79,9 @@ La cadencia es un objetivo de operación, no una garantía de latencia. La web n
 | --- | --- | --- |
 | `device_state` | Última muestra válida o inválida, recepción, edad, calidad, modo Monitorización y niveles reportados; sin identidad privada del dispositivo | SELECT público; escritura mediante backend validado |
 | `private.ingest_cursor` y `private.known_boots` | Secuencia y arranques ya vistos; evitan duplicados y regresiones | Exclusivamente función privilegiada |
-| `device_commands` (pendiente) | ID, dispositivo/arranque destino, solicitante, operación, parámetros, emisión, caducidad y resultado | Privado; administrador y backend según permisos |
+| `device_commands` | Secuencia, arranque destino, operación, parámetros, emisión, caducidad y resultado | Solo backend; ninguna escritura pública |
 | `device_config` (pendiente) | Umbrales, programación calibrada, límites y versión de configuración | Privado; cambios autorizados y aplicación confirmada |
-| Credenciales y autorización | Token de dispositivo configurado; cuenta administradora pendiente | Nunca accesibles desde lectura pública |
+| Credenciales y autorización | Token de dispositivo y cuenta administradora configurados | Nunca accesibles desde lectura pública |
 
 La recepción del servidor y la edad de cola de la muestra se registran por separado. Una retransmisión no refresca datos viejos. El ingreso usa secuencia e identidad de arranque privadas para deduplicar; la hora mostrada es una estimación, no una medición exacta de latencia.
 
@@ -201,6 +201,8 @@ Cada fase tiene una condición de salida. La documentación y el desarrollo de l
 
 ### Fase 4 — Administración y órdenes
 
+**Estado:** implementada y probada sin cargas. Panel privado con cuenta autorizada, modos, pulso de bomba de 1–3000 ms, ventiladores y órdenes confirmadas. Peltier sin control. Evidencia y límites en [Fase 4](FASE_4.md).
+
 **Trabajo**
 
 - Configurar cuenta administradora y protección de rutas/operaciones en servidor.
@@ -287,7 +289,7 @@ Cada evidencia registrará fecha, versión de firmware/web, montaje utilizado, a
 | Caudal real, macetas, sustrato y drenaje | Aprobar riego automático |
 | Ventiladores y disipador | Refrigeración física |
 | Sensor y corte térmico independiente | Habilitar Peltier |
-| Cuenta administradora | Control privado de fase 4; proyectos cloud ya operativos |
+| Cuenta administradora | Configurada y probada en navegador integrado; falta acceso desde un celular real |
 | Red de evaluación y credenciales Wi-Fi | Prueba final sin laptop |
 | Retención de datos y límites del servicio | Histórico persistente y uso prolongado |
 

@@ -59,14 +59,14 @@ export async function POST(request: Request) {
     return reply(error instanceof RangeError ? 413 : 400, { ok: false, error: "Cuerpo de telemetría inválido." });
   }
   const sample = validateTelemetry(raw, expectedDevice);
-  if (!sample) return reply(400, { ok: false, error: "Muestra inválida o fuera de los límites de fase 3." });
+  if (!sample) return reply(400, { ok: false, error: "Muestra inválida o fuera de los límites de fase 4." });
   try {
-    const { data, error } = await telemetryDatabase().rpc("ingest_telemetry", { payload: sample });
-    if (error) {
-      console.error("Telemetry database rejected request", { code: error.code });
+    const { data, error } = await telemetryDatabase().rpc("ingest_telemetry_v4", { payload: sample });
+    if (error || !data || typeof data.accepted !== "boolean") {
+      console.error("Telemetry database rejected request", { code: error?.code });
       return reply(503, { ok: false, error: "No se pudo guardar la muestra." });
     }
-    return reply(200, { ok: true, accepted: data === true });
+    return reply(200, { ok: true, accepted: data.accepted, command: data.accepted ? data.command ?? null : null });
   } catch {
     return reply(503, { ok: false, error: "Servicio de datos no disponible." });
   }

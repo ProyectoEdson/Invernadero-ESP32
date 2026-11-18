@@ -6,6 +6,29 @@ export type GpioLevels = {
   fans: 0 | 1;
 };
 
+export type OperatingMode = "manual" | "automatic" | "monitoring";
+export type CommandKind = "set_mode" | "pump_pulse" | "set_fans";
+export type CommandStatus = "pending" | "applied" | "rejected" | "expired";
+
+/** Vista administrativa: la identidad privada del dispositivo/arranque no se expone. */
+export type Command = {
+  id: string;
+  sequence: number;
+  kind: CommandKind;
+  value: string | boolean | null;
+  duration_ms: number | null;
+  status: CommandStatus;
+  reason: string | null;
+  created_at: string;
+  expires_at: string;
+  completed_at: string | null;
+};
+
+export type CommandInput =
+  | { kind: "set_mode"; value: "manual" | "automatic" }
+  | { kind: "pump_pulse"; duration_ms: number }
+  | { kind: "set_fans"; value: boolean };
+
 /** Vista pública: no incluye credenciales, MAC, identidad de arranque ni órdenes. */
 export type DeviceState = {
   id: "invernadero";
@@ -20,7 +43,8 @@ export type DeviceState = {
   peltier_locked: boolean;
   gpio_levels: GpioLevels;
   outputs_safe: boolean;
-  operating_mode: "monitoring";
+  operating_mode: OperatingMode;
+  phase4_control_ready: boolean;
 };
 
 export const PUBLIC_DEVICE_ID = "invernadero";
