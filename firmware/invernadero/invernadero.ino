@@ -34,8 +34,11 @@
 #error "Copia cloud.example.h como cloud.local.h y configura URL, token y CA."
 #endif
 
-static_assert(sizeof(WIFI_SSID) > 1, "Configura WIFI_SSID en wifi.local.h.");
-static_assert(sizeof(WIFI_SSID) <= 33, "El SSID admite como máximo 32 bytes.");
+constexpr size_t WIFI_NETWORK_COUNT = sizeof(WIFI_NETWORKS) / sizeof(WIFI_NETWORKS[0]);
+static_assert(WIFI_NETWORK_COUNT >= 1, "Configura al menos una red en wifi.local.h.");
+static_assert(wifiNetworksUsable(WIFI_NETWORKS),
+              "SSID de 1-32 bytes y clave de hasta 63.");
+constexpr uint32_t WIFI_ATTEMPT_TIMEOUT_MS = 10000;
 static_assert(sizeof(CLOUD_API_URL) > 9, "Configura CLOUD_API_URL en cloud.local.h.");
 static_assert(sizeof(CLOUD_DEVICE_TOKEN) > 1, "Configura CLOUD_DEVICE_TOKEN en cloud.local.h.");
 static_assert(sizeof(CLOUD_ROOT_CA) > 1, "Configura CLOUD_ROOT_CA en cloud.local.h.");
@@ -141,7 +144,10 @@ char bootId[33];
 uint32_t sequence = 0;
 uint32_t lastSampleAt = 0;
 uint32_t lastNetworkCheckAt = 0;
-uint32_t lastWifiAttemptAt = 0;
+uint32_t nextWifiAttemptAt = 0;
+uint32_t wifiAttemptStartedAt = 0;
+size_t wifiCandidate = 0;
+bool wifiAttemptActive = false;
 uint32_t retryDelayMs = INITIAL_RETRY_MS;
 bool wasConnected = false;
 bool memoryConfigurationOk = false;
@@ -408,6 +414,17 @@ static void reportBoot() {
       memoryConfigurationOk ? "true" : "false");
 }
 
+static void beginWifiAttempt(uint32_t now, size_t index) {
+  WiFi.disconnect(false, false);
+  wifiCandidate = index;
+  wifiAttemptStartedAt = now;
+  wifiAttemptActive = true;
+  // Solo el índice: el nombre de la red no se publica en el log.
+  Serial.printf("{\"type\":\"wifi\",\"status\":\"trying\",\"network\":%u}\n",
+                unsigned(index + 1));
+  WiFi.begin(WIFI_NETWORKS[index].ssid, WIFI_NETWORKS[index].password);
+}
+
 static void serviceNetwork(uint32_t now) {
   if (uint32_t(now - lastNetworkCheckAt) < NETWORK_CHECK_INTERVAL_MS) {
     return;
@@ -417,23 +434,43 @@ static void serviceNetwork(uint32_t now) {
   if (connected != wasConnected) {
     wasConnected = connected;
     if (connected) {
+      wifiAttemptActive = false;
       retryDelayMs = INITIAL_RETRY_MS;
       const IPAddress ip = WiFi.localIP();
       Serial.printf(
-          "{\"type\":\"wifi\",\"status\":\"connected\",\"ip\":\"%u.%u.%u.%u\"}\n",
-          ip[0], ip[1], ip[2], ip[3]);
+          "{\"type\":\"wifi\",\"status\":\"connected\",\"network\":%u,"
+          "\"ip\":\"%u.%u.%u.%u\"}\n",
+          unsigned(wifiCandidate + 1), ip[0], ip[1], ip[2], ip[3]);
     } else {
-      lastWifiAttemptAt = now;
+      wifiAttemptActive = false;
+      nextWifiAttemptAt = now;
       Serial.println("{\"type\":\"wifi\",\"status\":\"disconnected\"}");
     }
   }
-  if (!connected && uint32_t(now - lastWifiAttemptAt) >= retryDelayMs) {
-    lastWifiAttemptAt = now;
-    WiFi.reconnect();
+  if (connected) {
+    return;
+  }
+  if (wifiAttemptActive) {
+    if (uint32_t(now - wifiAttemptStartedAt) < WIFI_ATTEMPT_TIMEOUT_MS) {
+      return;
+    }
+    WiFi.disconnect(false, false);
+    wifiAttemptActive = false;
+    const size_t next = wifiCandidate + 1;
+    if (next < WIFI_NETWORK_COUNT) {
+      beginWifiAttempt(now, next);
+      return;
+    }
+    wifiCandidate = 0;
+    nextWifiAttemptAt = now + retryDelayMs;
     retryDelayMs = retryDelayMs < MAX_RETRY_MS / 2
                        ? retryDelayMs * 2
                        : MAX_RETRY_MS;
-    Serial.println("{\"type\":\"wifi\",\"status\":\"retry_requested\"}");
+    Serial.println("{\"type\":\"wifi\",\"status\":\"cycle_failed\"}");
+    return;
+  }
+  if (int32_t(now - nextWifiAttemptAt) >= 0) {
+    beginWifiAttempt(now, wifiCandidate);
   }
 }
 
@@ -1003,8 +1040,9 @@ void setup() {
   reportBoot();
   initializePumpTimer();
   // Inicia la asociación sin esperar en un while; el muestreo sigue su reloj.
-  lastWifiAttemptAt = millis();
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  const uint32_t bootAt = millis();
+  nextWifiAttemptAt = bootAt;
+  beginWifiAttempt(bootAt, 0);
   lastSampleAt = millis();
   initializeCloud();
 }

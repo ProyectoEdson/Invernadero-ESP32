@@ -106,6 +106,24 @@ La primera transmisión posterior a la migración mostró `invalid_response` con
 
 ## 7. Operación
 
+### Varias redes Wi-Fi
+
+`wifi.local.h` admite una lista; el firmware las prueba en orden hasta que una responde:
+
+```cpp
+constexpr WifiNetwork WIFI_NETWORKS[] = {
+    {"RED_HABITUAL", "CLAVE"},
+    {"HOTSPOT_1", "CLAVE"},
+    {"HOTSPOT_2", "CLAVE"},
+};
+```
+
+- Máximo 10 segundos por intento fallido; conviene poner primero la red más usada.
+- Si ninguna responde, espera entre 15 y 60 segundos y repite el ciclo.
+- El log informa solo el índice de red, nunca el SSID ni la clave.
+- Siguen siendo redes de 2,4 GHz con contraseña; no resuelve portales cautivos ni 802.1X.
+- Se verificó con una red inexistente delante de la real: el equipo pasó a la segunda y transmitió.
+
 Variables nuevas: `ADMIN_USER_ID`. Se mantienen `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DEVICE_ID` y `DEVICE_TOKEN_SHA256`.
 
 La migración de fase 4 sustituye `ingest_telemetry` por `ingest_telemetry_v4`: el firmware de fase 3 deja de ser compatible, por lo que base, API y firmware deben actualizarse juntos. El despliegue sigue siendo manual por CLI; publicar en GitHub no despliega.
