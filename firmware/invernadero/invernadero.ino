@@ -48,7 +48,7 @@ constexpr gpio_num_t PELTIER_PIN = GPIO_NUM_4;
 constexpr gpio_num_t PUMP_PIN = GPIO_NUM_5;
 constexpr gpio_num_t FANS_PIN = GPIO_NUM_7;
 constexpr gpio_num_t OUTPUT_PINS[] = {PELTIER_PIN, PUMP_PIN, FANS_PIN};
-constexpr uint32_t SAMPLE_INTERVAL_MS = 3000;
+constexpr uint32_t SAMPLE_INTERVAL_MS = 1000;
 constexpr uint32_t NETWORK_CHECK_INTERVAL_MS = 250;
 constexpr uint32_t INITIAL_RETRY_MS = 15000;
 constexpr uint32_t MAX_RETRY_MS = 60000;
@@ -845,14 +845,26 @@ static bool parseCloudResponse(CloudResponseBuffer &response,
   return true;
 }
 
+// Cliente persistente: a 1 muestra/s, un handshake TLS por envío no cabe.
+// La conexión se reutiliza; ante cualquier fallo de transporte se cierra para
+// que el siguiente intento negocie de nuevo en lugar de reusar un socket roto.
+static WiFiClientSecure &cloudTlsClient() {
+  static WiFiClientSecure client;
+  static bool configured = false;
+  if (!configured) {
+    client.setCACert(CLOUD_ROOT_CA);
+    client.setHandshakeTimeout(TLS_HANDSHAKE_TIMEOUT_SECONDS);
+    configured = true;
+  }
+  return client;
+}
+
 static bool sendCloudSample(const TelemetrySample &sample) {
-  WiFiClientSecure client;
-  client.setCACert(CLOUD_ROOT_CA);
-  client.setHandshakeTimeout(TLS_HANDSHAKE_TIMEOUT_SECONDS);
+  WiFiClientSecure &client = cloudTlsClient();
   HTTPClient http;
   http.setConnectTimeout(HTTP_CONNECT_TIMEOUT_MS);
   http.setTimeout(HTTP_IO_TIMEOUT_MS);
-  http.setReuse(false);
+  http.setReuse(true);
   // Nunca reenviar el Bearer a otro destino mediante una redirección.
   http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
   if (!http.begin(client, CLOUD_API_URL)) {
@@ -882,6 +894,7 @@ static bool sendCloudSample(const TelemetrySample &sample) {
   const int status = http.POST(reinterpret_cast<uint8_t *>(body), length);
   bool successful = false;
   if (status <= 0) {
+    client.stop();
     publishCloudReport("transport_error", 0, status);
   } else if (status != HTTP_CODE_OK) {
     publishCloudReport("http_error", status);
@@ -894,6 +907,7 @@ static bool sendCloudSample(const TelemetrySample &sample) {
     if (received < 0 || size_t(received) != response.length ||
         (declaredLength >= 0 && received != declaredLength) ||
         !parseCloudResponse(response, requestStartedAtMs, parsed)) {
+      if (received < 0) client.stop();
       publishCloudReport("invalid_response", status, received < 0 ? received : 0);
     } else {
       successful = true;

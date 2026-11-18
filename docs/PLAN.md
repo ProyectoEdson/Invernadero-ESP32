@@ -62,7 +62,7 @@ Las funciones de Vercel resolverán peticiones cortas y no guardarán estado aut
 
 ### Comunicación prevista
 
-1. El ESP32 obtiene una lectura válida aproximadamente cada 3 segundos; las tareas locales no esperan una petición de red para funcionar.
+1. El ESP32 obtiene una lectura válida cada segundo; las tareas locales no esperan una petición de red para funcionar.
 2. Envía por HTTPS lectura, identificador de arranque, secuencia, estado aplicado, calidad de sensores y confirmaciones pendientes.
 3. La API valida el envío y actualiza el estado público permitido.
 4. En la misma respuesta puede entregar una orden vigente.
@@ -128,7 +128,7 @@ El cambio de modo será explícito y confirmado por el ESP32. No habrá cambios 
 - Medir caudal en la instalación real; fijar dosis y frecuencia considerando macetas, sustrato y drenaje.
 - No aprobar una duración por el simple hecho de ser corta. Un pulso de 3 a 5 segundos puede entregar mucha agua.
 - No permitir pulsos solapados, acumulación de órdenes o riegos de recuperación tras reconectar.
-- Guardar el identificador del evento antes de activar la bomba para evitar repetirlo al reiniciar. No persistir telemetría cada 3 segundos en la memoria flash del ESP32.
+- Guardar el identificador del evento antes de activar la bomba para evitar repetirlo al reiniciar. No persistir telemetría cada segundo en la memoria flash del ESP32.
 - Tras reinicio, no reanudar un pulso interrumpido. Exigir hora válida y programación aprobada para habilitar riego automático.
 - La hora podrá sincronizarse con NTP; mientras siga alimentado, el equipo mantendrá su avance local. Si reinicia sin una referencia horaria válida, no adivinará el horario.
 
@@ -297,7 +297,7 @@ Las propuestas de componentes o librerías no significan compra ni instalación 
 
 ## 7. Consumo y operación
 
-Enviar cada 3 segundos equivale aproximadamente a 28.800 intercambios al día por dispositivo en operación continua. Si cada envío escribe en base, también hay consumo de escrituras y eventos Realtime; el público añade conexiones y tráfico.
+Enviar cada segundo equivale a 86.400 intercambios al día por dispositivo si permanece encendido 24 h. Si cada envío escribe en base, también hay consumo de escrituras y eventos Realtime; el público añade conexiones y tráfico. Con el plan gratuito de Vercel (1.000.000 de invocaciones y 4 h de CPU al mes) esto es cómodo para pruebas y demostraciones, pero no para un mes entero encendido.
 
 Antes del despliegue se revisarán cuotas vigentes de Vercel y Supabase. No se promete funcionamiento ilimitado o gratuito. Ajustar frecuencia, retención y número de espectadores requiere mantener explícito el impacto en actualización y coste.
 

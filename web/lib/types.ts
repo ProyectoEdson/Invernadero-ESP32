@@ -48,7 +48,7 @@ export type DeviceState = {
 };
 
 export const PUBLIC_DEVICE_ID = "invernadero";
-export const SAMPLE_INTERVAL_MS = 3_000;
+export const SAMPLE_INTERVAL_MS = 1_000;
 export const STALE_AFTER_MS = 15_000;
 export const MAX_SESSION_POINTS = 1_200;
 export const COOLING_ON_C = 24;

@@ -64,6 +64,7 @@ El servidor exige que la última muestra tenga menos de 15 segundos y que el fir
 - Deduplicación O(1): marca de agua de `sequence` y último UUID/ack. Un replay no reejecuta ni prolonga plazos.
 - El TTL se descuenta desde el inicio del POST, incluido el RTT. Cada primera entrega fija el vencimiento; repetir la respuesta no lo extiende.
 - El `ack` vive en RAM hasta que el servidor acepta la muestra que lo contiene; un fallo de transporte no lo consume.
+- Cadencia de 1 s. Para que la entrega también sea de 1 s se reutiliza la conexión TLS: medido en el hotspot, 21 entregas aceptadas en 20 s (media 0,96 s). Sin esa reutilización caía a ~0,55 Hz, porque cada envío pagaba un handshake.
 - Worker y loop se comunican por colas; solo el loop escribe el log serie.
 
 El temporizador acota el máximo configurado, no constituye una garantía física absoluta ante un fallo del MCU o interrupciones deshabilitadas. Un corte físico independiente sigue siendo necesario para la Peltier.
