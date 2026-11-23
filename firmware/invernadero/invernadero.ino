@@ -31,17 +31,17 @@
 #if __has_include("cloud.local.h")
 #include "cloud.local.h"
 #else
-#error "Copia cloud.example.h como cloud.local.h y configura URL, token y CA."
+#error "Copia cloud.example.h como cloud.local.h y configura el token."
 #endif
+
+#include "cruchi_tls.h"
 
 constexpr size_t WIFI_NETWORK_COUNT = sizeof(WIFI_NETWORKS) / sizeof(WIFI_NETWORKS[0]);
 static_assert(WIFI_NETWORK_COUNT >= 1, "Configura al menos una red en wifi.local.h.");
 static_assert(wifiNetworksUsable(WIFI_NETWORKS),
               "SSID de 1-32 bytes y clave de hasta 63.");
 constexpr uint32_t WIFI_ATTEMPT_TIMEOUT_MS = 10000;
-static_assert(sizeof(CLOUD_API_URL) > 9, "Configura CLOUD_API_URL en cloud.local.h.");
 static_assert(sizeof(CLOUD_DEVICE_TOKEN) > 1, "Configura CLOUD_DEVICE_TOKEN en cloud.local.h.");
-static_assert(sizeof(CLOUD_ROOT_CA) > 1, "Configura CLOUD_ROOT_CA en cloud.local.h.");
 
 constexpr uint8_t DHT_PIN = 15;
 constexpr gpio_num_t PELTIER_PIN = GPIO_NUM_4;
@@ -852,7 +852,7 @@ static WiFiClientSecure &cloudTlsClient() {
   static WiFiClientSecure client;
   static bool configured = false;
   if (!configured) {
-    client.setCACert(CLOUD_ROOT_CA);
+    client.setCACert(CRUCHI_ROOT_CA);
     client.setHandshakeTimeout(TLS_HANDSHAKE_TIMEOUT_SECONDS);
     configured = true;
   }
@@ -867,7 +867,7 @@ static bool sendCloudSample(const TelemetrySample &sample) {
   http.setReuse(true);
   // Nunca reenviar el Bearer a otro destino mediante una redirección.
   http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
-  if (!http.begin(client, CLOUD_API_URL)) {
+  if (!http.begin(client, CRUCHI_API_URL)) {
     publishCloudReport("begin_failed");
     return false;
   }
@@ -973,7 +973,7 @@ static void cloudWorker(void *) {
 }
 
 static void initializeCloud() {
-  if (strncmp(CLOUD_API_URL, "https://", 8) != 0) {
+  if (strncmp(CRUCHI_API_URL, "https://", 8) != 0) {
     Serial.println("{\"type\":\"cloud\",\"status\":\"https_required\"}");
     return;
   }

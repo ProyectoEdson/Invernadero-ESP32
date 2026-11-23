@@ -10,6 +10,8 @@ Invernadero automatizado para lechuga, con un ESP32-S3 conectado por Wi-Fi a una
 
 **CruChi, fase 1:** [`cruchi/public/`](cruchi/public/) contiene el panel público y la API PHP. El destino de validación es `/invernadero/`; la raíz del dominio y Vercel no forman parte del despliegue inicial. [`cruchi/schema.sql`](cruchi/schema.sql) se aplica en MySQL y la configuración privada de PHP se guarda fuera de la raíz web. Al cambiar el destino del ESP32, el panel privado de Vercel seguirá publicado, pero no recibirá telemetría nueva ni entregará órdenes al dispositivo.
 
+En la rama CruChi, [`cruchi_tls.h`](firmware/invernadero/cruchi_tls.h) fija el endpoint HTTPS y la raíz ISRG Root X1; `cloud.local.h` solo necesita el token privado. Compilación: `arduino-cli compile --profile esp32s3 firmware/invernadero`.
+
 Se ha revisado el esquemático compartido y se han identificado las señales previstas. La PCB física, las protecciones y la capacidad eléctrica del montaje siguen pendientes de validación.
 
 **La Peltier debe permanecer deshabilitada hasta instalar y verificar disipación, ventilación y protección térmica.** El modo Manual no podrá saltarse ese bloqueo.
