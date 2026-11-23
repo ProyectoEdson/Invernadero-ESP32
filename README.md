@@ -8,6 +8,8 @@ Invernadero automatizado para lechuga, con un ESP32-S3 conectado por Wi-Fi a una
 
 **Web pública:** <https://invernadero-esp32-delta.vercel.app> · **Panel privado:** <https://invernadero-esp32-delta.vercel.app/admin>
 
+**CruChi, fase 1:** [`cruchi/public/`](cruchi/public/) contiene el panel público y la API PHP. El destino de validación es `/invernadero/`; la raíz del dominio y Vercel no forman parte del despliegue inicial. [`cruchi/schema.sql`](cruchi/schema.sql) se aplica en MySQL y la configuración privada de PHP se guarda fuera de la raíz web. Al cambiar el destino del ESP32, el panel privado de Vercel seguirá publicado, pero no recibirá telemetría nueva ni entregará órdenes al dispositivo.
+
 Se ha revisado el esquemático compartido y se han identificado las señales previstas. La PCB física, las protecciones y la capacidad eléctrica del montaje siguen pendientes de validación.
 
 **La Peltier debe permanecer deshabilitada hasta instalar y verificar disipación, ventilación y protección térmica.** El modo Manual no podrá saltarse ese bloqueo.

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Temperatura, humedad ambiental y estado reportado del invernadero ESP32. Monitorización pública con lecturas reales.">
+  <title>Invernadero ESP32 | Clima en directo</title>
+  <link rel="stylesheet" href="dashboard.css">
+  <script src="dashboard.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#clima">Saltar a las lecturas</a>
+  <div class="site-shell">
+    <header class="site-header">
+      <a class="identity" href="#clima" aria-label="Invernadero ESP32, inicio">
+        <svg class="brand-mark" viewBox="0 0 40 44" aria-hidden="true"><path d="M5 38V17L20 5L35 17V38H5ZM20 5V38M5 17H35M20 30C11 30 10 24 10 24C17 23 20 27 20 30ZM20 25C20 20 25 18 29 19C29 24 25 27 20 27" /></svg>
+        <span>Invernadero <span class="identity-model">ESP32</span></span>
+      </a>
+      <div class="public-header-actions">
+        <div class="header-status"><span class="status-dot" id="status-dot" aria-hidden="true"></span><span id="headline">Consultando lecturas</span></div>
+        <a class="admin-access" href="https://invernadero-esp32-delta.vercel.app/admin">Administrar</a>
+      </div>
+    </header>
+    <main id="clima">
+      <div class="intro">
+        <div><p class="intro-kicker">Una ventana al cultivo</p><h1>Lo que se respira<br>dentro del invernadero.</h1></div>
+        <p class="intro-note">Temperatura y humedad ambiental,<br class="desktop-break"> medidas por un DHT11.<br><span>Vista pública de solo lectura. Las órdenes no están disponibles en CruChi.</span></p>
+      </div>
+      <div class="notices" aria-live="polite">
+        <div id="query-notice" class="notice" hidden><strong>No se pudieron consultar las lecturas.</strong><p id="query-detail"></p><button id="retry" type="button" class="text-button">Reintentar consulta</button></div>
+        <div id="stale-notice" class="notice" hidden><strong>El dispositivo no ha enviado una lectura reciente.</strong><p>Puede haber una interrupción de Wi-Fi, Internet o del propio ESP32. Los valores que ves son antiguos.</p></div>
+        <div id="sensor-notice" class="notice" hidden><strong id="sensor-title"></strong><p id="sensor-detail"></p></div>
+        <noscript><div class="notice">Activa JavaScript para consultar las lecturas.</div></noscript>
+      </div>
+      <div class="climate-layout">
+        <section id="current" class="greenhouse-section" aria-labelledby="current-title" aria-busy="true">
+          <div class="section-heading"><h2 id="current-title">El ambiente ahora</h2><span class="quiet-label">DHT11 <span class="info-wrap"><button type="button" class="info-button" aria-label="Qué mide el DHT11" aria-describedby="dht-info">i</button><span class="info-tooltip" role="tooltip" id="dht-info">Mide el aire junto al sensor, no la humedad del suelo. Una lectura no describe todo el cultivo.</span></span></span></div>
+          <div class="greenhouse-drawing">
+            <svg class="greenhouse-lines" viewBox="0 0 620 430" preserveAspectRatio="none" aria-hidden="true">
+              <path class="greenhouse-roof" d="M40 168L310 32L580 168M66 155V389H554V155M310 32V389M120 129L363 253M500 129L257 253M66 207H554" />
+              <path class="greenhouse-base" d="M20 390H600M94 405H526" />
+              <path class="plant-lines" d="M151 388V347M151 367C126 368 120 354 119 345C136 344 150 351 151 367ZM152 358C155 341 165 335 182 336C180 349 170 359 152 358ZM459 388V330M459 355C439 354 430 344 429 333C445 332 457 340 459 355ZM459 344C460 324 471 316 488 317C488 333 477 344 459 344" />
+            </svg>
+            <div id="roof-mode" class="roof-label">Sin reporte</div>
+            <div class="climate-readings">
+              <div class="temperature-reading"><span class="metric-name">Temperatura</span><p id="temperature" class="metric-value is-loading">—<span>°C</span></p></div>
+              <div class="humidity-reading"><span class="metric-name">Humedad relativa</span><p id="humidity" class="metric-value is-loading">—<span>%</span></p></div>
+            </div>
+            <div id="quality" class="reading-quality">Esperando la consulta inicial</div>
+          </div>
+          <div class="reading-caption"><time id="measured-at" hidden></time><span id="age">Conectando con el invernadero…</span></div>
+        </section>
+        <section class="evolution" aria-labelledby="evolution-title">
+          <div class="section-heading"><div><h2 id="evolution-title">El clima, a su ritmo</h2><p>Evolución reciente</p></div><span class="sample-count" id="sample-count">0 muestras</span></div>
+          <div class="chart-legend" aria-label="Series y unidades"><span><i class="legend-temperature"></i>Temperatura · °C</span><span><i class="legend-humidity"></i>Humedad · % HR</span></div>
+          <div id="chart-empty" class="chart-empty">
+            <svg viewBox="0 0 160 64" aria-hidden="true"><path d="M8 51H152M18 40L48 30M65 28L91 18M110 21L143 10" /></svg>
+            <h3>Aún no hay una curva</h3><p>Las lecturas válidas guardadas aparecerán aquí.</p>
+          </div>
+          <div id="chart" class="chart-canvas" hidden>
+            <svg id="chart-plot" role="img" aria-label="Evolución de temperatura en grados Celsius y humedad relativa en porcentaje. Las interrupciones de lectura dejan huecos en las líneas."></svg>
+            <div id="chart-tooltip" class="chart-tooltip" aria-hidden="true" hidden></div>
+          </div>
+          <p id="chart-note" class="chart-note" hidden>Una lectura real. La curva necesita nuevas muestras.</p>
+          <p class="chart-footnote">Últimas 1.200 muestras. Los huecos no se interpolan. Horas de tu navegador.</p>
+          <details id="reading-table" class="reading-table">
+            <summary>Consultar lecturas en tabla</summary>
+            <p id="table-empty">No hay muestras guardadas.</p>
+            <div id="table-scroll" class="table-scroll" tabindex="0" role="region" aria-label="Lecturas recibidas, desplazamiento vertical" hidden>
+              <table>
+                <caption>Últimas muestras primero. Hora local del navegador.</caption>
+                <thead><tr><th scope="col">Hora</th><th scope="col">°C</th><th scope="col">% HR</th><th scope="col">Sensor</th></tr></thead>
+                <tbody id="reading-rows"></tbody>
+              </table>
+            </div>
+          </details>
+        </section>
+      </div>
+      <section class="system-section" aria-labelledby="system-title">
+        <div class="system-heading"><h2 id="system-title">Lo que reporta el sistema</h2><p>Información del ESP32, no confirmación física de las cargas. <strong id="stale-report" hidden>Reporte desactualizado.</strong></p></div>
+        <dl class="system-strip">
+          <div><dt>Modo reportado</dt><dd id="reported-mode">Sin reporte</dd><p id="mode-note">Vista pública de solo lectura</p></div>
+          <div><dt>Peltier <span class="info-wrap"><button type="button" class="info-button" aria-label="Por qué la Peltier está bloqueada" aria-describedby="peltier-info">i</button><span class="info-tooltip" role="tooltip" id="peltier-info">Protección térmica pendiente. Este canal no debe activarse en esta fase.</span></span></dt><dd id="peltier" class="warning-text">Sin reporte</dd><p>Protección térmica pendiente</p></div>
+          <div><dt>Bomba · Q2</dt><dd id="pump">Sin reporte</dd><p>El GPIO no confirma caudal</p></div>
+          <div><dt>Ventiladores · Q3</dt><dd id="fans">Sin reporte</dd><p>El GPIO no confirma ventilación</p></div>
+        </dl>
+        <div class="diagnostics">
+          <span>Wi-Fi del ESP32: <strong id="wifi">sin reporte</strong></span>
+          <span>Memoria: <strong id="memory">sin reporte</strong></span>
+          <span>Peltier · Q1: <strong id="peltier-gpio">sin reporte</strong></span>
+          <span>Consulta web: <strong id="web-status">conectando</strong></span>
+        </div>
+      </section>
+      <aside class="context-section" aria-label="Alcance de la monitorización">
+        <div class="context-leaf" aria-hidden="true"><svg viewBox="0 0 52 64"><path d="M11 56C15 37 31 24 43 8C50 40 33 52 16 49M13 52L28 37M26 39V26" /></svg></div>
+        <div><h2>Observar primero. Cuidar con criterio.</h2><p>Los 24 °C de encendido y 22 °C de apagado son umbrales previstos para un futuro automático, no un objetivo activo ni una recomendación agronómica. Automático no riega en fase 4; la calibración y el riego quedan para fase 5.</p></div>
+        <p class="future-note">El acceso privado sigue en Vercel. CruChi no envía órdenes al ESP32. Un nivel GPIO no confirma actuación física.</p>
+      </aside>
+    </main>
+    <footer class="site-footer"><span>Invernadero ESP32</span><span>Datos reales. Historial reciente.</span></footer>
+  </div>
+</body>
+</html>

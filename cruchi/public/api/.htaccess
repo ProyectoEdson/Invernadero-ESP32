@@ -1,0 +1,5 @@
+CGIPassAuth On
+
+<Files "common.php">
+    Require all denied
+</Files>
