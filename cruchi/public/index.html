@@ -14,7 +14,11 @@
       } catch {}
       document.addEventListener("DOMContentLoaded", () => {
         const toggle = document.getElementById("theme-toggle");
-        const sync = () => toggle.setAttribute("aria-pressed", String(root.dataset.theme === "dark"));
+        const sync = () => {
+          const dark = root.dataset.theme === "dark";
+          toggle.textContent = dark ? "Modo claro" : "Modo oscuro";
+          toggle.dataset.active = String(dark);
+        };
         toggle.addEventListener("click", () => {
           root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
           sync();
@@ -25,7 +29,7 @@
       });
     })();
   </script>
-  <link rel="stylesheet" href="dashboard.css?v=3">
+  <link rel="stylesheet" href="dashboard.css?v=4">
   <script src="dashboard.js" defer></script>
 </head>
 <body>
@@ -39,7 +43,7 @@
       <div class="public-header-actions">
         <div class="header-status"><span class="status-dot" id="status-dot" aria-hidden="true"></span><span id="headline">Consultando lecturas</span></div>
         <div class="header-links">
-          <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" hidden>Modo oscuro</button>
+          <button id="theme-toggle" class="theme-toggle" type="button" hidden>Modo oscuro</button>
           <a class="admin-access" href="https://invernadero-esp32-delta.vercel.app/admin">Administrar</a>
         </div>
       </div>
