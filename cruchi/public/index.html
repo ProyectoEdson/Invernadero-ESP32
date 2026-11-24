@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Temperatura, humedad ambiental y estado reportado del invernadero ESP32. Monitorización pública con lecturas reales.">
   <title>Invernadero ESP32 | Clima en directo</title>
-  <link rel="stylesheet" href="dashboard.css">
+  <link rel="stylesheet" href="dashboard.css?v=2">
   <script src="dashboard.js" defer></script>
 </head>
 <body>
@@ -22,10 +22,6 @@
       </div>
     </header>
     <main id="clima">
-      <div class="intro">
-        <div><p class="intro-kicker">Una ventana al cultivo</p><h1>Lo que se respira<br>dentro del invernadero.</h1></div>
-        <p class="intro-note">Temperatura y humedad ambiental,<br class="desktop-break"> medidas por un DHT11.<br><span>Vista pública de solo lectura. Las órdenes no están disponibles en CruChi.</span></p>
-      </div>
       <div class="notices" aria-live="polite">
         <div id="query-notice" class="notice" hidden><strong>No se pudieron consultar las lecturas.</strong><p id="query-detail"></p><button id="retry" type="button" class="text-button">Reintentar consulta</button></div>
         <div id="stale-notice" class="notice" hidden><strong>El dispositivo no ha enviado una lectura reciente.</strong><p>Puede haber una interrupción de Wi-Fi, Internet o del propio ESP32. Los valores que ves son antiguos.</p></div>
@@ -34,20 +30,29 @@
       </div>
       <div class="climate-layout">
         <section id="current" class="greenhouse-section" aria-labelledby="current-title" aria-busy="true">
-          <div class="section-heading"><h2 id="current-title">El ambiente ahora</h2><span class="quiet-label">DHT11 <span class="info-wrap"><button type="button" class="info-button" aria-label="Qué mide el DHT11" aria-describedby="dht-info">i</button><span class="info-tooltip" role="tooltip" id="dht-info">Mide el aire junto al sensor, no la humedad del suelo. Una lectura no describe todo el cultivo.</span></span></span></div>
-          <div class="greenhouse-drawing">
-            <svg class="greenhouse-lines" viewBox="0 0 620 430" preserveAspectRatio="none" aria-hidden="true">
-              <path class="greenhouse-roof" d="M40 168L310 32L580 168M66 155V389H554V155M310 32V389M120 129L363 253M500 129L257 253M66 207H554" />
-              <path class="greenhouse-base" d="M20 390H600M94 405H526" />
-              <path class="plant-lines" d="M151 388V347M151 367C126 368 120 354 119 345C136 344 150 351 151 367ZM152 358C155 341 165 335 182 336C180 349 170 359 152 358ZM459 388V330M459 355C439 354 430 344 429 333C445 332 457 340 459 355ZM459 344C460 324 471 316 488 317C488 333 477 344 459 344" />
-            </svg>
-            <div id="roof-mode" class="roof-label">Sin reporte</div>
-            <div class="climate-readings">
-              <div class="temperature-reading"><span class="metric-name">Temperatura</span><p id="temperature" class="metric-value is-loading">—<span>°C</span></p></div>
-              <div class="humidity-reading"><span class="metric-name">Humedad relativa</span><p id="humidity" class="metric-value is-loading">—<span>%</span></p></div>
-            </div>
-            <div id="quality" class="reading-quality">Esperando la consulta inicial</div>
+          <svg class="greenhouse-lines" viewBox="0 0 960 440" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <path class="greenhouse-glass" d="M48 440V197L480 24L912 197V440Z M94 440V211L480 62L866 211V440Z" />
+            <path class="greenhouse-roof" d="M12 213L480 24L948 213M48 198V440M912 198V440M94 211L480 62L866 211V440M94 211V440M172 161V440M788 161V440M480 62V440M48 212H912M48 390H912M48 423H912" />
+            <path class="plant-bed" d="M47 403Q114 374 194 402L216 440H36Z M744 402Q826 374 913 403L926 440H722Z" />
+            <path class="plant-lines" d="M126 409Q142 375 137 326M136 384Q93 391 80 344Q120 344 136 384ZM138 368Q143 327 180 319Q180 354 138 368ZM137 349Q105 339 112 306Q138 314 137 349ZM819 409Q805 375 813 308M808 385Q849 388 862 341Q822 344 808 385ZM807 371Q765 364 767 329Q800 338 807 371ZM811 351Q841 330 836 303Q811 309 811 351Z" />
+          </svg>
+          <div class="greenhouse-heading">
+            <h1 id="current-title">Clima del invernadero</h1>
+            <span class="quiet-label">Sensor DHT11 <span class="info-wrap"><button type="button" class="info-button" aria-label="Qué mide el DHT11" aria-describedby="dht-info">i</button><span class="info-tooltip" role="tooltip" id="dht-info">Mide el aire junto al sensor, no la humedad del suelo. Una lectura no describe todo el cultivo.</span></span></span>
           </div>
+          <div class="climate-readings">
+            <div class="temperature-reading">
+              <svg class="metric-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14.5V5a2 2 0 0 1 4 0v9.5a4 4 0 1 1-4 0ZM12 9v8M16 7h2m-2 4h2" /></svg>
+              <span class="metric-name">Temperatura</span>
+              <p id="temperature" class="metric-value is-loading">—<span>°C</span></p>
+            </div>
+            <div class="humidity-reading">
+              <svg class="metric-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c3.7 4.7 7 8.3 7 12a7 7 0 1 1-14 0c0-3.7 3.3-7.3 7-12Zm-3 12a3 3 0 0 0 3 3" /></svg>
+              <span class="metric-name">Humedad relativa</span>
+              <p id="humidity" class="metric-value is-loading">—<span>%</span></p>
+            </div>
+          </div>
+          <div class="reading-meta"><div id="quality" class="reading-quality">Esperando la consulta inicial</div><div id="roof-mode" class="roof-label">Sin reporte</div></div>
           <div class="reading-caption"><time id="measured-at" hidden></time><span id="age">Conectando con el invernadero…</span></div>
         </section>
         <section class="evolution" aria-labelledby="evolution-title">
