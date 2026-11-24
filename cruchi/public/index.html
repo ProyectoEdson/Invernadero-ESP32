@@ -5,7 +5,27 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Temperatura, humedad ambiental y estado reportado del invernadero ESP32. Monitorización pública con lecturas reales.">
   <title>Invernadero ESP32 | Clima en directo</title>
-  <link rel="stylesheet" href="dashboard.css?v=2">
+  <script>
+    (() => {
+      const root = document.documentElement;
+      const key = "invernadero-theme";
+      try {
+        if (localStorage.getItem(key) === "dark") root.dataset.theme = "dark";
+      } catch {}
+      document.addEventListener("DOMContentLoaded", () => {
+        const toggle = document.getElementById("theme-toggle");
+        const sync = () => toggle.setAttribute("aria-pressed", String(root.dataset.theme === "dark"));
+        toggle.addEventListener("click", () => {
+          root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+          sync();
+          try { localStorage.setItem(key, root.dataset.theme); } catch {}
+        });
+        sync();
+        toggle.hidden = false;
+      });
+    })();
+  </script>
+  <link rel="stylesheet" href="dashboard.css?v=3">
   <script src="dashboard.js" defer></script>
 </head>
 <body>
@@ -18,7 +38,10 @@
       </a>
       <div class="public-header-actions">
         <div class="header-status"><span class="status-dot" id="status-dot" aria-hidden="true"></span><span id="headline">Consultando lecturas</span></div>
-        <a class="admin-access" href="https://invernadero-esp32-delta.vercel.app/admin">Administrar</a>
+        <div class="header-links">
+          <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" hidden>Modo oscuro</button>
+          <a class="admin-access" href="https://invernadero-esp32-delta.vercel.app/admin">Administrar</a>
+        </div>
       </div>
     </header>
     <main id="clima">

@@ -21,6 +21,31 @@
   color: var(--ink);
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --forest: #b1dec1;
+  --leaf: #79ad8d;
+  --porcelain: #101e18;
+  --ink: #edf7ee;
+  --border: #345346;
+  --amber: #f2bd7a;
+  --muted: #b2c8b9;
+}
+
+[data-theme="dark"] .greenhouse-section { --porcelain: #edf7ee; }
+[data-theme="dark"] .evolution { background: #182d23; }
+[data-theme="dark"] .context-section,
+[data-theme="dark"] th,
+[data-theme="dark"] .info-button:hover { background: #213a2d; }
+[data-theme="dark"] .context-section p { color: var(--muted); }
+[data-theme="dark"] .context-section .future-note { border-color: var(--border); }
+[data-theme="dark"] .context-leaf svg { stroke: var(--leaf); }
+[data-theme="dark"] .notice { background: #35291d; color: #ffe1b7; }
+[data-theme="dark"] .text-button:hover { background: #4b3825; }
+[data-theme="dark"] .skip-link,
+[data-theme="dark"] .info-tooltip { color: #102f25; }
+[data-theme="dark"] .status-dot.is-live { box-shadow: 0 0 0 4px #294737; }
+
 * { box-sizing: border-box; }
 body { margin: 0; font-family: var(--font-sans); font-size: 14px; line-height: 1.6; }
 a { color: inherit; }
@@ -210,6 +235,9 @@ th, td { padding: 8px; border-bottom: 1px solid var(--border); white-space: nowr
 .notices:has(.notice:not([hidden])) { margin-bottom: 28px; }
 .info-wrap.is-dismissed .info-tooltip { display: none; }
 .public-header-actions { display: flex; align-items: center; gap: 20px; }
+.header-links { display: flex; align-items: center; gap: 10px; }
+.theme-toggle { min-height: 44px; padding: 6px 9px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: var(--forest); font-size: 11px; font-weight: 700; white-space: nowrap; }
+.theme-toggle[aria-pressed="true"] { border-color: var(--forest); }
 .admin-access { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 0; font-size: 12px; font-weight: 650; text-underline-offset: 4px; }
 .chart-canvas { position: relative; }
 .chart-canvas svg { width: 100%; height: 100%; font-size: 11px; }
@@ -222,4 +250,6 @@ th, td { padding: 8px; border-bottom: 1px solid var(--border); white-space: nowr
 @media (max-width: 480px) {
   .public-header-actions { align-items: flex-end; flex-direction: column; gap: 0; }
   .public-header-actions .header-status { font-size: 9px; max-width: 130px; }
+  .site-header { flex-wrap: wrap; gap: 0 8px; }
+  .public-header-actions { flex: 1 1 144px; }
 }
