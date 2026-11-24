@@ -22,12 +22,6 @@
 #error "Este firmware requiere un ESP32-S3."
 #endif
 
-#if __has_include("wifi.local.h")
-#include "wifi.local.h"
-#else
-#error "Copia wifi.example.h como wifi.local.h y configura tu red de 2,4 GHz."
-#endif
-
 #if __has_include("cloud.local.h")
 #include "cloud.local.h"
 #else
@@ -35,12 +29,8 @@
 #endif
 
 #include "cruchi_tls.h"
+#include "wifi_setup.h"
 
-constexpr size_t WIFI_NETWORK_COUNT = sizeof(WIFI_NETWORKS) / sizeof(WIFI_NETWORKS[0]);
-static_assert(WIFI_NETWORK_COUNT >= 1, "Configura al menos una red en wifi.local.h.");
-static_assert(wifiNetworksUsable(WIFI_NETWORKS),
-              "SSID de 1-32 bytes y clave de hasta 63.");
-constexpr uint32_t WIFI_ATTEMPT_TIMEOUT_MS = 10000;
 static_assert(sizeof(CLOUD_DEVICE_TOKEN) > 1, "Configura CLOUD_DEVICE_TOKEN en cloud.local.h.");
 
 constexpr uint8_t DHT_PIN = 15;
@@ -143,13 +133,6 @@ char deviceId[17];
 char bootId[33];
 uint32_t sequence = 0;
 uint32_t lastSampleAt = 0;
-uint32_t lastNetworkCheckAt = 0;
-uint32_t nextWifiAttemptAt = 0;
-uint32_t wifiAttemptStartedAt = 0;
-size_t wifiCandidate = 0;
-bool wifiAttemptActive = false;
-uint32_t retryDelayMs = INITIAL_RETRY_MS;
-bool wasConnected = false;
 bool memoryConfigurationOk = false;
 OperatingMode operatingMode = OperatingMode::Manual;
 bool phase4ControlReady = false;
@@ -412,66 +395,6 @@ static void reportBoot() {
       "\"memory_config_ok\":%s,\"dht_gpio\":15,\"peltier_locked\":true}\n",
       deviceId, bootId, (unsigned long)flashBytes, (unsigned long)psramBytes,
       memoryConfigurationOk ? "true" : "false");
-}
-
-static void beginWifiAttempt(uint32_t now, size_t index) {
-  WiFi.disconnect(false, false);
-  wifiCandidate = index;
-  wifiAttemptStartedAt = now;
-  wifiAttemptActive = true;
-  // Solo el índice: el nombre de la red no se publica en el log.
-  Serial.printf("{\"type\":\"wifi\",\"status\":\"trying\",\"network\":%u}\n",
-                unsigned(index + 1));
-  WiFi.begin(WIFI_NETWORKS[index].ssid, WIFI_NETWORKS[index].password);
-}
-
-static void serviceNetwork(uint32_t now) {
-  if (uint32_t(now - lastNetworkCheckAt) < NETWORK_CHECK_INTERVAL_MS) {
-    return;
-  }
-  lastNetworkCheckAt = now;
-  const bool connected = WiFi.status() == WL_CONNECTED;
-  if (connected != wasConnected) {
-    wasConnected = connected;
-    if (connected) {
-      wifiAttemptActive = false;
-      retryDelayMs = INITIAL_RETRY_MS;
-      const IPAddress ip = WiFi.localIP();
-      Serial.printf(
-          "{\"type\":\"wifi\",\"status\":\"connected\",\"network\":%u,"
-          "\"ip\":\"%u.%u.%u.%u\"}\n",
-          unsigned(wifiCandidate + 1), ip[0], ip[1], ip[2], ip[3]);
-    } else {
-      wifiAttemptActive = false;
-      nextWifiAttemptAt = now;
-      Serial.println("{\"type\":\"wifi\",\"status\":\"disconnected\"}");
-    }
-  }
-  if (connected) {
-    return;
-  }
-  if (wifiAttemptActive) {
-    if (uint32_t(now - wifiAttemptStartedAt) < WIFI_ATTEMPT_TIMEOUT_MS) {
-      return;
-    }
-    WiFi.disconnect(false, false);
-    wifiAttemptActive = false;
-    const size_t next = wifiCandidate + 1;
-    if (next < WIFI_NETWORK_COUNT) {
-      beginWifiAttempt(now, next);
-      return;
-    }
-    wifiCandidate = 0;
-    nextWifiAttemptAt = now + retryDelayMs;
-    retryDelayMs = retryDelayMs < MAX_RETRY_MS / 2
-                       ? retryDelayMs * 2
-                       : MAX_RETRY_MS;
-    Serial.println("{\"type\":\"wifi\",\"status\":\"cycle_failed\"}");
-    return;
-  }
-  if (int32_t(now - nextWifiAttemptAt) >= 0) {
-    beginWifiAttempt(now, wifiCandidate);
-  }
 }
 
 static size_t formatSample(char *buffer, size_t capacity,
@@ -936,13 +859,19 @@ static bool sendCloudSample(const TelemetrySample &sample) {
 }
 
 static void cloudWorker(void *) {
-  // SNTP trabaja de forma asíncrona; jamás esperar la hora en setup/loop.
-  configTime(0, 0, "pool.ntp.org", "time.cloudflare.com");
   uint32_t retryMs = INITIAL_RETRY_MS;
   uint64_t nextAttemptAt = 0;
   const char *waitingStatus = nullptr;
+  uint32_t wifiSwitch = wifiSetupSwitchCount();
   for (;;) {
-    const char *blocked = WiFi.status() != WL_CONNECTED ? "waiting_wifi"
+    const uint32_t currentSwitch = wifiSetupSwitchCount();
+    if (currentSwitch != wifiSwitch) {
+      wifiSwitch = currentSwitch;
+      cloudTlsClient().stop();
+      retryMs = INITIAL_RETRY_MS;
+      nextAttemptAt = 0;
+    }
+    const char *blocked = !wifiSetupConnected() ? "waiting_wifi"
         : time(nullptr) < MIN_VALID_UNIX_TIME ? "waiting_time" : nullptr;
     if (blocked != nullptr) {
       if (blocked != waitingStatus) {
@@ -962,7 +891,11 @@ static void cloudWorker(void *) {
                       pdMS_TO_TICKS(NETWORK_CHECK_INTERVAL_MS)) != pdTRUE) {
       continue;
     }
+    if (!wifiSetupConnected() || wifiSetupSwitchCount() != wifiSwitch) {
+      continue;
+    }
     if (sendCloudSample(sample)) {
+      wifiSetupReportCloudReachable();
       retryMs = INITIAL_RETRY_MS;
       nextAttemptAt = 0;
     } else {
@@ -1030,7 +963,7 @@ static void readAndReport() {
       xQueuePeek(commandAcks, &sample.ack, 0) == pdTRUE;
   sample.sequence = ++sequence;
   sample.uptimeMs = uint64_t(esp_timer_get_time() / 1000);
-  sample.wifiConnected = wasConnected;
+  sample.wifiConnected = wifiSetupConnected();
   char body[SAMPLE_JSON_CAPACITY];
   if (formatSample(body, sizeof(body), sample, false) != 0) {
     Serial.println(body);
@@ -1053,10 +986,9 @@ void setup() {
   initializeIdentity();
   reportBoot();
   initializePumpTimer();
-  // Inicia la asociación sin esperar en un while; el muestreo sigue su reloj.
-  const uint32_t bootAt = millis();
-  nextWifiAttemptAt = bootAt;
-  beginWifiAttempt(bootAt, 0);
+  if (!wifiSetupStart(deviceId, bootId)) {
+    Serial.println("{\"type\":\"wifi\",\"status\":\"worker_start_failed\"}");
+  }
   lastSampleAt = millis();
   initializeCloud();
 }
@@ -1066,7 +998,6 @@ void loop() {
   serviceCommands();
   servicePump();
   const uint32_t now = millis();
-  serviceNetwork(now);
   reportCloud();
   if (uint32_t(now - lastSampleAt) >= SAMPLE_INTERVAL_MS) {
     lastSampleAt = now;

@@ -1,5 +1,5 @@
 CGIPassAuth On
 
-<Files "common.php">
+<FilesMatch "^(common|wifi-common)\.php$">
     Require all denied
-</Files>
+</FilesMatch>

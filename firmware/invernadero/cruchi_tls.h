@@ -1,6 +1,9 @@
 #pragma once
 
-constexpr char CRUCHI_API_URL[] = "https://proyecto16.cruchi.com/invernadero/api/telemetry.php";
+#define CRUCHI_ORIGIN "https://proyecto16.cruchi.com"
+constexpr char CRUCHI_API_URL[] = CRUCHI_ORIGIN "/invernadero/api/telemetry.php";
+constexpr char CRUCHI_WIFI_API_URL[] = CRUCHI_ORIGIN "/invernadero/api/device-wifi.php";
+#undef CRUCHI_ORIGIN
 
 // ISRG Root X1: https://letsencrypt.org/certs/isrgrootx1.pem
 constexpr char CRUCHI_ROOT_CA[] = R"PEM(-----BEGIN CERTIFICATE-----
