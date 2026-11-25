@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Temperatura, humedad ambiental y estado reportado del invernadero ESP32. Monitorización pública con lecturas reales.">
+  <meta name="description" content="Temperatura, humedad ambiental, iluminancia y estado reportado del invernadero ESP32. Monitorización pública con lecturas reales.">
   <title>Invernadero ESP32 | Clima en directo</title>
   <script>
     (() => {
@@ -29,8 +29,8 @@
       });
     })();
   </script>
-  <link rel="stylesheet" href="dashboard.css?v=4">
-  <script src="dashboard.js" defer></script>
+  <link rel="stylesheet" href="dashboard.css?v=5">
+  <script src="dashboard.js?v=5" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#clima">Saltar a las lecturas</a>
@@ -78,6 +78,12 @@
               <span class="metric-name">Humedad relativa</span>
               <p id="humidity" class="metric-value is-loading">—<span>%</span></p>
             </div>
+            <div class="illuminance-reading">
+              <svg class="metric-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" /></svg>
+              <span class="metric-name">Iluminancia <small>(BH1750)</small></span>
+              <p id="illuminance" class="metric-value is-loading">—<span>lux</span></p>
+              <p id="illuminance-unknown" class="metric-note" hidden>Sin medición de luz</p>
+            </div>
           </div>
           <div class="reading-meta"><div id="quality" class="reading-quality">Esperando la consulta inicial</div><div id="roof-mode" class="roof-label">Sin reporte</div></div>
           <div class="reading-caption"><time id="measured-at" hidden></time><span id="age">Conectando con el invernadero…</span></div>
@@ -98,10 +104,10 @@
           <details id="reading-table" class="reading-table">
             <summary>Consultar lecturas en tabla</summary>
             <p id="table-empty">No hay muestras guardadas.</p>
-            <div id="table-scroll" class="table-scroll" tabindex="0" role="region" aria-label="Lecturas recibidas, desplazamiento vertical" hidden>
+            <div id="table-scroll" class="table-scroll" tabindex="0" role="region" aria-label="Tabla desplazable de lecturas recibidas" hidden>
               <table>
                 <caption>Últimas muestras primero. Hora local del navegador.</caption>
-                <thead><tr><th scope="col">Hora</th><th scope="col">°C</th><th scope="col">% HR</th><th scope="col">Sensor</th></tr></thead>
+                <thead><tr><th scope="col">Hora</th><th scope="col">°C</th><th scope="col">% HR</th><th scope="col">Luz (lux)</th><th scope="col">DHT11</th></tr></thead>
                 <tbody id="reading-rows"></tbody>
               </table>
             </div>
@@ -112,14 +118,14 @@
         <div class="system-heading"><h2 id="system-title">Lo que reporta el sistema</h2><p>Información del ESP32, no confirmación física de las cargas. <strong id="stale-report" hidden>Reporte desactualizado.</strong></p></div>
         <dl class="system-strip">
           <div><dt>Modo reportado</dt><dd id="reported-mode">Sin reporte</dd><p id="mode-note">Vista pública de solo lectura</p></div>
-          <div><dt>Peltier <span class="info-wrap"><button type="button" class="info-button" aria-label="Por qué la Peltier está bloqueada" aria-describedby="peltier-info">i</button><span class="info-tooltip" role="tooltip" id="peltier-info">Protección térmica pendiente. Este canal no debe activarse en esta fase.</span></span></dt><dd id="peltier" class="warning-text">Sin reporte</dd><p>Protección térmica pendiente</p></div>
+          <div><dt><span id="peltier-label">Peltier</span> <span class="info-wrap"><button type="button" class="info-button" aria-label="Por qué este canal está bloqueado" aria-describedby="peltier-info">i</button><span class="info-tooltip" role="tooltip" id="peltier-info">Protección térmica pendiente. Este canal no debe activarse en esta fase.</span></span></dt><dd id="peltier" class="warning-text">Sin reporte</dd><p>Protección térmica pendiente</p></div>
           <div><dt>Bomba · Q2</dt><dd id="pump">Sin reporte</dd><p>El GPIO no confirma caudal</p></div>
-          <div><dt>Ventiladores · Q3</dt><dd id="fans">Sin reporte</dd><p>El GPIO no confirma ventilación</p></div>
+          <div><dt id="q3-label">Ventiladores · Q3</dt><dd id="q3">Sin reporte</dd><p id="q3-note">El GPIO no confirma ventilación</p></div>
         </dl>
         <div class="diagnostics">
           <span>Wi-Fi del ESP32: <strong id="wifi">sin reporte</strong></span>
           <span>Memoria: <strong id="memory">sin reporte</strong></span>
-          <span>Peltier · Q1: <strong id="peltier-gpio">sin reporte</strong></span>
+          <span><span id="peltier-gpio-label">Peltier · Q1</span>: <strong id="peltier-gpio">sin reporte</strong></span>
           <span>Consulta web: <strong id="web-status">conectando</strong></span>
         </div>
       </section>

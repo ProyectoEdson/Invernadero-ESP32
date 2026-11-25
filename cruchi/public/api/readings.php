@@ -14,7 +14,7 @@ if ($after !== null && (!is_string($after) || !preg_match('/\A(?:0|[1-9][0-9]{0,
 
 try {
     $db = database(config());
-    $columns = 'id, received_at, sample_age_ms, temperature_c, humidity_pct, sensor_status';
+    $columns = 'id, received_at, sample_age_ms, temperature_c, humidity_pct, illuminance_lux, sensor_status';
     if ($after === null) {
         $query = $db->query("SELECT $columns FROM readings ORDER BY id DESC LIMIT " . MAX_READINGS);
     } else {

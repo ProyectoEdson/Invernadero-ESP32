@@ -25,10 +25,21 @@ function validSample(mixed $sample, string $deviceId): bool
         || ($sample->peltier_locked ?? null) !== true || ($sample->outputs_safe ?? null) !== true
         || !($sample->gpio_levels ?? null) instanceof stdClass || ($sample->gpio_levels->peltier ?? null) !== 0
         || !in_array($sample->gpio_levels->pump ?? null, [0, 1], true)
-        || !in_array($sample->gpio_levels->fans ?? null, [0, 1], true)
-        || !in_array($sample->operating_mode ?? null, ['manual', 'automatic'], true)
-        || ($sample->phase4_control_ready ?? null) !== true
         || !property_exists($sample, 'temperature_c') || !property_exists($sample, 'humidity_pct')) {
+        return false;
+    }
+    if (($sample->operating_mode ?? null) === 'monitoring') {
+        if (($sample->phase4_control_ready ?? null) !== false
+            || $sample->gpio_levels->pump !== 0 || ($sample->gpio_levels->leds ?? null) !== 0
+            || count(get_object_vars($sample->gpio_levels)) !== 3
+            || !property_exists($sample, 'illuminance_lux')
+            || ($sample->illuminance_lux !== null && !inRange($sample->illuminance_lux, 54612.5))) {
+            return false;
+        }
+    } elseif (!in_array($sample->operating_mode ?? null, ['manual', 'automatic'], true)
+        || ($sample->phase4_control_ready ?? null) !== true
+        || !in_array($sample->gpio_levels->fans ?? null, [0, 1], true)
+        || property_exists($sample->gpio_levels, 'leds') || property_exists($sample, 'illuminance_lux')) {
         return false;
     }
     // Los acuses de órdenes se ignoran: CruChi solo monitoriza.
@@ -65,13 +76,14 @@ function storeSample(PDO $db, stdClass $sample): bool
         }
 
         $insert = $db->prepare('INSERT INTO readings (boot_id, sequence_no, uptime_ms, received_at,
-            sample_age_ms, temperature_c, humidity_pct, sensor_status, wifi_connected, memory_config_ok,
-            pump_gpio, fans_gpio, operating_mode) VALUES (?, ?, ?, UTC_TIMESTAMP(3), ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            sample_age_ms, temperature_c, humidity_pct, illuminance_lux, sensor_status, wifi_connected, memory_config_ok,
+            pump_gpio, fans_gpio, leds_gpio, operating_mode) VALUES (?, ?, ?, UTC_TIMESTAMP(3), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $insert->execute([
             $boot, $sample->sequence, $sample->uptime_ms, $sample->sent_uptime_ms - $sample->uptime_ms,
-            $sample->temperature_c, $sample->humidity_pct, $sample->sensor_status,
+            $sample->temperature_c, $sample->humidity_pct, $sample->illuminance_lux ?? null, $sample->sensor_status,
             (int) $sample->wifi_connected, (int) $sample->memory_config_ok,
-            $sample->gpio_levels->pump, $sample->gpio_levels->fans, $sample->operating_mode,
+            $sample->gpio_levels->pump, $sample->gpio_levels->fans ?? null, $sample->gpio_levels->leds ?? null,
+            $sample->operating_mode,
         ]);
         $advance = $db->prepare("UPDATE device_state SET reading_id = ? WHERE id = 'invernadero'");
         $advance->execute([$db->lastInsertId()]);

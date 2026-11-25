@@ -45,6 +45,7 @@ function publicReading(array $row): array
         'sample_age_ms' => (int) $row['sample_age_ms'],
         'temperature_c' => $row['temperature_c'] === null ? null : (float) $row['temperature_c'],
         'humidity_pct' => $row['humidity_pct'] === null ? null : (float) $row['humidity_pct'],
+        'illuminance_lux' => $row['illuminance_lux'] === null ? null : (float) $row['illuminance_lux'],
         'sensor_status' => $row['sensor_status'],
     ];
 }

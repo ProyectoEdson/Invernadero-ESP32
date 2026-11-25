@@ -6,7 +6,7 @@
 
 Esta ficha reúne el esquemático, la imagen de PCB, la fotografía de la bomba y la detección USB compartidos durante la preparación. Que la PCB se haya fabricado a partir del esquema no demuestra continuidad, orientación ni capacidad eléctrica bajo carga.
 
-Los archivos originales de EasyEDA, las fotografías y la ficha del fabricante de la Peltier todavía no se han incorporado al repositorio. El mapa siguiente es lectura del esquema, no certificación de la placa ensamblada.
+Los archivos originales de EasyEDA, las fotografías y la ficha del fabricante de la Peltier todavía no se han incorporado al repositorio. El mapa actual recoge el cableado reportado para esta PCB; hay que contrastarlo con continuidad antes de alimentarla.
 
 ## 2. Inventario conocido
 
@@ -15,6 +15,7 @@ Los archivos originales de EasyEDA, las fotografías y la ficha del fabricante d
 | Microcontrolador | ESP32-S3, placa de 44 pines | Contrastar pinout y orientación con PCB física |
 | Detección USB observada | ESP32-S3 rev. v0.2, flash 16 MB, PSRAM integrada 8 MB | Confirmar configuración de PSRAM durante arranque |
 | Sensor ambiental | DHT11 | Verificar alimentación y pull-up del módulo real |
+| Sensor de luz | GY‑302 con BH1750, I²C a 3,3 V | Confirmar dirección `0x23` y respuesta a cambios de luz |
 | Peltier | TEC1-12706, alimentación prevista de 12 V | Fabricante, ficha, corriente real, disipador y protección |
 | Bomba | AD20P-1230A brushless, 12 V, 4,8 W, IP68 según etiqueta | Caudal instalado, consumo de arranque y modo de instalación permitido |
 | Ventiladores | Previstos de 12 V | Aún no instalados; corriente y caudal no definidos |
@@ -26,19 +27,20 @@ El símbolo del esquema identifica una variante N8R8, mientras que la detección
 
 ## 3. Mapa de señales
 
-| Función prevista | Cadena según esquema | GPIO |
+Este mapa reemplaza el del montaje previo documentado en las fases 1 a 4. **El firmware antiguo no es válido para esta PCB**, en particular porque usaba GPIO4 y GPIO7 como salidas.
+
+| Función | Conexión reportada | GPIO |
 | --- | --- | --- |
-| Sensor ambiental J1 | Pin 2 de J1 → U1 IO15 | 15 |
-| Entrada disponible J2 | Pin 2 de J2 → U1 IO6 | 6 |
-| Peltier | U1 IO4 → R6 de 220 Ω → Q1 → J5 | 4 |
-| Bomba | U1 IO5 → R4 de 220 Ω → Q2 → J6 | 5 |
-| Ventiladores | U1 IO7 → R3 de 220 Ω → Q3 → J7 | 7 |
+| DHT11 | J2: VCC 3,3 V, GND y DATA | 4 |
+| BH1750 / GY‑302, SDA | J1: VCC 3,3 V, GND y SDA | 7 |
+| BH1750 / GY‑302, SCL | Cable directo al GPIO libre del ESP32‑S3 | 9 |
+| Q1, Peltier + ventilación | Peltier en J5 y ventiladores de 12 V en J8, en paralelo | 45 |
+| Q2, riego | Bomba de 12 V en J6 | 6 |
+| Q3, iluminación | Tira de LEDs de 12 V en J7 | 5 |
 
-En el esquema, los conectores de sensor llevan alimentación de 3,3 V y GND. Verificar número de pin y orientación física antes de enchufar un módulo; la forma o ubicación del pad no sustituye esa verificación.
+El BH1750 queda en `0x23` con ADDR sin conectar según el módulo reportado. El firmware inicia el bus explícitamente con SDA 7 y SCL 9 (`Wire.begin`). Verificar pull-ups I²C a 3,3 V, la orientación de J1/J2 y que ninguna señal esté conectada a 12 V. El BH1750 mide iluminancia en lux, no flujo luminoso en lúmenes.
 
-**GPIO4 no es el DHT11 en esta PCB.** Ese GPIO controla Q1. Un sketch genérico que lo use para el sensor puede conmutar la salida de la Peltier. Para el DHT11 conectado a J1 se utilizará GPIO15.
-
-J2 queda libre porque no se usará sensor de suelo. Podría emplearse para un sensor térmico futuro, previa revisión de alimentación, GPIO, pull-up y cableado.
+**GPIO45 es un pin de arranque.** Su nivel al reset puede seleccionar la tensión de VDD_SPI si el módulo no la fija por eFuse. Hay que confirmar variante, pull-down y arranque en frío con las cargas desconectadas; escribir LOW en `setup()` no controla el nivel previo al arranque. Consultar la [guía de Espressif, VDD_SPI](https://docs.espressif.com/projects/esp-hardware-design-guidelines/en/latest/esp32s3/schematic-checklist.html#flash-and-psram).
 
 ## 4. Canales de potencia
 
@@ -55,10 +57,10 @@ Antes de probar cargas, revisar excitación, disipación y pérdida de tensión 
 ### PWM y polaridad
 
 - No habilitar PWM de alta frecuencia con este montaje sin revisar MOSFET, driver, diodos, carga y calentamiento.
-- Para la primera implementación se plantea encendido/apagado, no regulación PWM de potencia.
+- Esta versión solo monitoriza: Q1, Q2 y Q3 se mantienen en LOW, sin PWM ni órdenes de encendido.
 - Un MOSFET low-side no invierte polaridad: no permite alternar frío/calor de la Peltier.
 - La bomba es brushless y puede contener electrónica propia; no asumir que admite PWM externo ni que se comporta como un motor de escobillas simple.
-- Los ventiladores conectados al mismo Q3 se controlarán juntos. No podrán tener órdenes independientes sin modificar el hardware.
+- Q1 conmuta Peltier y ventiladores juntos. Este cableado no permite ventilación previa, posterior o independiente; no habilitar Q1 hasta resolver esa exigencia térmica.
 
 ## 5. Alimentación desde batería
 
@@ -107,7 +109,7 @@ Sin sensor de suelo no hay medición después de esperar infiltración: el algor
 
 ## 7. Refrigeración: bloqueo vigente
 
-Actualmente no hay ventilador ni sensor en la cara caliente. No se ha confirmado un montaje de disipación completo. Por decisión del responsable, su incorporación se pospone y **Q1 debe permanecer deshabilitada**.
+Q1 permanece deshabilitada. Aunque el cableado reporta ventiladores en paralelo con la Peltier, no se ha validado la disipación ni un corte térmico independiente.
 
 La Peltier descarga en la cara caliente el calor extraído más la energía eléctrica consumida. Esa cara necesita un disipador adecuado y evacuar calor fuera de la caja. Una caja aislada no puede enfriarse globalmente si ambas caras descargan todo su calor dentro.
 
@@ -143,9 +145,9 @@ Las bombas de este proyecto son de riego. No se supondrá refrigeración por agu
 | ArduinoJson | 7.4.3 |
 | esptool incluido en el core | 5.3.1 |
 
-Se detectó el chip por USB y se compiló un sketch temporal: 309.962 bytes con la partición utilizada en esa prueba. Eso no verifica ejecución ni capacidad térmica. No se cargó ese sketch y ya se eliminó. No reutilizar su asignación antigua de GPIO4 para DHT11 con esta PCB.
+Se detectó el chip por USB y se compiló un sketch temporal en el montaje anterior. Esto no verifica ejecución ni capacidad térmica; ese sketch no se cargó y su mapa no se debe reutilizar.
 
-El firmware del repositorio ya se compiló y cargó con el perfil de 16 MB y PSRAM OPI. La primera prueba mostró fallo DHT11; tras revisar el cableado, seis muestras consecutivas fueron válidas, con 27,1 °C y 31–33 % de humedad. En esas muestras, `memory_config_ok: true` confirmó la comparación con flash 16 MB y PSRAM 8 MB; Wi-Fi conectado y pads de salida LOW. Esto valida el firmware base por USB, no la etapa de potencia. Instrucciones y evidencia en [Fases 1 y 2](FASES_1_2.md). Las herramientas de una estación no configuran automáticamente las de otro colaborador.
+El arranque USB, DHT11 y niveles de salidas del montaje anterior quedaron registrados en [Fases 1 y 2](FASES_1_2.md). Repetir esas pruebas sobre el mapa nuevo, añadir una prueba del BH1750 y comprobar GPIO45 con las cargas de 12 V desconectadas.
 
 ## 10. Referencia del MOSFET
 

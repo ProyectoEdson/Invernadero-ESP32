@@ -9,6 +9,9 @@ const visible = (id, show) => { byId(id).hidden = !show; };
 const timeFormat = new Intl.DateTimeFormat("es", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 const dateFormat = new Intl.DateTimeFormat("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit", timeZoneName: "short" });
 const metricFormat = new Intl.NumberFormat("es", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const luxFormat = new Intl.NumberFormat("es", { maximumFractionDigits: 1 });
+const formatLux = (lux) => Number.isFinite(lux) ? luxFormat.format(lux) : "—";
+const gpioLevel = (level, unknown = "Sin reporte") => level === 0 ? "GPIO LOW" : level === 1 ? "GPIO HIGH" : unknown;
 const measuredAt = (sample) => Date.parse(sample.received_at) - sample.sample_age_ms;
 const history = [];
 const MAX_POINTS = 1200;
@@ -30,9 +33,11 @@ function updateState() {
   const stale = age !== null && age > STALE_MS;
   const valid = state?.sensor_status === "ok";
   const outOfRange = state?.sensor_status === "out_of_range";
-  const sensor = valid ? "Lectura válida" : outOfRange ? "Sensor fuera de rango" : "Fallo de lectura del sensor";
-  const mode = !state ? "Sin reporte" : state.operating_mode === "automatic" ? "Automático" : "Manual";
-  text("headline", loading ? "Consultando lecturas" : queryFailed ? "Consulta interrumpida" : !state ? "Sin primera lectura" : stale ? "Lectura desactualizada" : !valid ? "Sensor con fallo" : "Lectura reciente");
+  const sensor = valid ? "Lectura DHT11 válida" : outOfRange ? "DHT11 fuera de rango" : "Fallo de lectura del DHT11";
+  const monitoring = state?.operating_mode === "monitoring";
+  const automatic = state?.operating_mode === "automatic";
+  const mode = !state ? "Sin reporte" : monitoring ? "Monitorización" : automatic ? "Automático" : "Manual";
+  text("headline", loading ? "Consultando lecturas" : queryFailed ? "Consulta interrumpida" : !state ? "Sin primera lectura" : stale ? "Lectura desactualizada" : !valid ? "DHT11 con fallo" : "Lectura reciente");
   byId("status-dot").classList.toggle("is-live", valid && !stale && !queryFailed);
   byId("current").classList.toggle("is-stale", stale);
   byId("current").setAttribute("aria-busy", String(loading));
@@ -41,6 +46,11 @@ function updateState() {
     metric.classList.toggle("is-loading", loading);
     metric.firstChild.data = valid ? metricFormat.format(state[key]) : "—";
   }
+  const lux = state?.illuminance_lux;
+  const illuminance = byId("illuminance");
+  illuminance.classList.toggle("is-loading", loading);
+  illuminance.firstChild.data = formatLux(lux);
+  visible("illuminance-unknown", !loading && !Number.isFinite(lux));
   text("quality", loading ? "Esperando la consulta inicial" : !state ? "Sin mediciones disponibles" : stale ? "Última lectura · desactualizada" : sensor);
   if (state) {
     const date = new Date(measuredAt(state));
@@ -51,11 +61,17 @@ function updateState() {
   text("age", state ? ageLabel(age) : loading ? "Conectando con el invernadero…" : queryFailed ? "Sin datos confirmados. Consulta el aviso de conexión." : "Todavía no se ha recibido la primera muestra del dispositivo.");
   text("roof-mode", mode);
   text("reported-mode", mode);
-  text("mode-note", state?.operating_mode === "automatic" ? "Sin riego automático en fase 4" : "Vista pública de solo lectura");
-  text("peltier", state ? "Bloqueada" : "Sin reporte");
-  text("peltier-gpio", state ? "GPIO LOW" : "sin reporte");
-  text("pump", !state ? "Sin reporte" : state.gpio_levels.pump ? "GPIO HIGH" : "GPIO LOW");
-  text("fans", !state ? "Sin reporte" : state.gpio_levels.fans ? "GPIO HIGH" : "GPIO LOW");
+  text("mode-note", monitoring ? "Solo monitorización, sin control de salidas" : automatic ? "Sin riego automático en fase 4" : "Vista pública de solo lectura");
+  text("peltier-label", monitoring ? "Q1 · Peltier + ventilación" : "Peltier");
+  text("peltier-gpio-label", monitoring ? "Q1 · Peltier + ventilación" : "Peltier · Q1");
+  const gpio = state?.gpio_levels;
+  const peltierLevel = gpio?.peltier;
+  text("peltier", monitoring ? gpioLevel(peltierLevel) : state ? "Bloqueada" : "Sin reporte");
+  text("peltier-gpio", gpioLevel(peltierLevel, "sin reporte"));
+  text("pump", gpioLevel(gpio?.pump));
+  text("q3-label", monitoring ? "LEDs · Q3" : "Ventiladores · Q3");
+  text("q3", gpioLevel(monitoring ? gpio?.leds : gpio?.fans));
+  text("q3-note", monitoring ? "El GPIO no confirma iluminación" : "El GPIO no confirma ventilación");
   text("wifi", !state ? "sin reporte" : stale ? "sin confirmación reciente" : state.wifi_connected ? "conectado al muestrear" : "desconectado al muestrear");
   text("memory", !state ? "sin reporte" : state.memory_config_ok ? "configuración reportada correcta" : "configuración incorrecta");
   text("web-status", loading ? "conectando" : queryFailed ? "interrumpida" : "activa cada segundo");
@@ -158,7 +174,8 @@ function renderRows(samples, replace) {
     const valid = sample.sensor_status === "ok";
     const row = fragment.appendChild(document.createElement("tr"));
     for (const value of [timeFormat.format(measuredAt(sample)), valid ? sample.temperature_c : "—",
-      valid ? sample.humidity_pct : "—", valid ? "Válido" : sample.sensor_status === "out_of_range" ? "Fuera de rango" : "Fallo de lectura"]) {
+      valid ? sample.humidity_pct : "—", formatLux(sample.illuminance_lux),
+      valid ? "Válido" : sample.sensor_status === "out_of_range" ? "Fuera de rango" : "Fallo de lectura"]) {
       row.insertCell().textContent = value;
     }
   }
