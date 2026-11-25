@@ -33,38 +33,7 @@ if ($method !== 'GET' && $method !== 'POST') {
 try {
     wifiAuthenticate('wifi_admin_token_sha256');
     $requested = $method === 'POST' ? wifiAdminJob(wifiJsonBody()) : null;
-    [$status, $body] = wifiMailbox(static function (array &$state, int $now) use ($requested): array {
-        $online = wifiIsOnline($state, $now);
-        $current = $state['job'];
-        if ($requested === null) {
-            return [200, ['ok' => true, 'online' => $online, 'job' => wifiJobView($current)]];
-        }
-
-        $id = $requested['id'];
-        $existing = ($current['id'] ?? null) === $id ? $current : ($state['recent'][$id] ?? null);
-        if ($existing !== null) {
-            // Never create a second job for a retry, including after completion.
-            if ($existing['kind'] !== $requested['kind'] || ($existing['status'] === 'pending'
-                && ($existing['encrypted'] ?? null) !== ($requested['encrypted'] ?? null))) {
-                return [409, ['ok' => false, 'error' => 'La solicitud de Wi-Fi está en conflicto.']];
-            }
-            return [200, ['ok' => true, 'online' => $online, 'job' => wifiJobView($existing)]];
-        }
-        if (!$online) {
-            return [409, ['ok' => false, 'error' => 'El dispositivo no está disponible.']];
-        }
-        if (($current['status'] ?? null) === 'pending' || count($state['recent']) >= WIFI_MAX_RECENT_JOBS) {
-            return [409, ['ok' => false, 'error' => 'El servicio de Wi-Fi está ocupado.']];
-        }
-        if ($current !== null && $now < $current['expires_at_ms']) {
-            $state['recent'][$current['id']] = $current;
-        }
-        $state['job'] = $requested + [
-            'boot_id' => $state['boot_id'],
-            'expires_at_ms' => $now + WIFI_JOB_TTL_MS,
-        ];
-        return [200, ['ok' => true, 'online' => $online, 'job' => wifiJobView($state['job'])]];
-    });
+    [$status, $body] = wifiAdminMailbox($requested);
     reply($status, $body);
 } catch (Throwable) {
     wifiUnavailable();

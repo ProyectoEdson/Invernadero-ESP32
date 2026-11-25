@@ -8,7 +8,7 @@ Invernadero automatizado para lechuga, con un ESP32-S3 conectado por Wi-Fi a una
 
 **PCB actual (monitorización):** ESP32‑S3, DHT11 en GPIO4 y GY‑302/BH1750 en I²C (SDA GPIO7, SCL GPIO9, dirección `0x23`). Temperatura, humedad, lux y estados GPIO se reportan por serie y a CruChi. Q1 (Peltier y ventilación), Q2 (bomba) y Q3 (LEDs) quedan en LOW, sin órdenes ni PWM. [Mapa de la PCB y precauciones](docs/HARDWARE.md#3-mapa-de-señales).
 
-**Wi‑Fi:** el firmware ofrece un portal local protegido cuando pierde las redes conocidas. El puente de CruChi está publicado; la pantalla privada de Wi‑Fi en CruChi aún no existe. [`web/`](web/) y `supabase/` conservan la fase histórica de Vercel; no son necesarios para la portada ni para el portal local.
+**Wi‑Fi:** el firmware ofrece un portal local protegido cuando pierde las redes conocidas. El panel privado de CruChi (`/invernadero/admin/`) usa la cuenta existente de Supabase Auth para administrar el Wi‑Fi sin pasar por Vercel. [`web/`](web/) y `supabase/` conservan la fase histórica; no son necesarios para la portada ni para el portal local.
 
 La detección y el funcionamiento real de la PCB nueva, el BH1750, GPIO45 durante el arranque y la recuperación Wi‑Fi requieren pruebas físicas. Los resultados de las fases anteriores no certifican este montaje.
 
@@ -18,6 +18,19 @@ La detección y el funcionamiento real de la PCB nueva, el BH1750, GPIO45 durant
 2. Abrir `firmware/invernadero/invernadero.ino` en Arduino IDE, o compilar desde la raíz con `arduino-cli compile --profile esp32s3 firmware/invernadero`. El perfil fija ESP32‑S3, flash de 16 MB y PSRAM OPI; comprobar el módulo físico. Copiar los `.example.h` a `.local.h` y configurar las credenciales por un canal privado, sin versionarlas ni publicar binarios.
 3. Para una base nueva, usar [`cruchi/schema.sql`](cruchi/schema.sql). Para una base existente con el esquema inicial de CruChi, aplicar una vez [`001_pcb_lux.sql`](cruchi/migrations/001_pcb_lux.sql) **antes** de publicar la API y el dashboard nuevos. No reaplicar el esquema de creación sobre una base con lecturas. Subir solo los cambios de `cruchi/public/` bajo `/invernadero/`; no reemplazar la portada PHP ni la configuración privada del hosting.
 4. Verificar que `state.php` y `readings.php` devuelven lecturas históricas y que el dashboard abre en `/`. La telemetría de la PCB usa `operating_mode: "monitoring"`, `gpio_levels.leds` e `illuminance_lux`: `0` es una lectura real, `null` significa sin medida. Los reportes anteriores conservan `gpio_levels.fans`.
+
+## Configuración privada de la administración Wi‑Fi
+
+Añadir estas claves al array que devuelve `.invernadero-cruchi.php`, **fuera de la raíz web** (en el directorio padre de `DOCUMENT_ROOT`). No subir valores al repositorio ni a la carpeta pública.
+
+| Clave | Valor |
+| --- | --- |
+| `supabase_url` | Origen HTTPS fijo del proyecto de Supabase Auth existente (`https://<proyecto>.supabase.co`), sin rutas ni parámetros. |
+| `supabase_anon_key` | Clave `anon` del mismo proyecto; no usar `service_role`. |
+| `supabase_admin_user_id` | UUID exacto de la cuenta administradora en Supabase Auth. Las demás cuentas no obtienen sesión en CruChi. |
+| `wifi_device_key` | Clave opcional de 32 bytes en 64 caracteres hexadecimales; debe coincidir con `WIFI_REMOTE_KEY` en el ESP32. Sin ella, se pueden consultar estados y buscar redes, pero no guardar una nueva. |
+
+La administración requiere HTTPS, sesiones PHP, el wrapper HTTPS de PHP habilitado (`allow_url_fopen`) para contactar Supabase y OpenSSL para cifrar los datos que recibe el ESP32. Reutiliza el buzón Wi‑Fi local de CruChi y su configuración existente, sin exponer ni requerir un bearer de administrador en el navegador. Para buscar o guardar redes, el ESP32 debe estar en línea. La confirmación de guardado no certifica que el ESP32 se pueda conectar a la nueva red.
 
 ## Documentación
 
